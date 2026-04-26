@@ -24,6 +24,12 @@ pnpm ui:build
 
 # Dev loop (auto-reload on source/config changes)
 pnpm gateway:watch
+
+# 制定配置文件启动
+# OPENCLAW_CONFIG_PATH=/Users/johnhan/Desktop/myself/yyvideoclaw/openclaw.json pnpm gateway:watch
+
+# 开发
+pnpm ui:dev
 ```
 
 If you need a built `dist/` from the checkout (for Node, packaging, or release validation), run:

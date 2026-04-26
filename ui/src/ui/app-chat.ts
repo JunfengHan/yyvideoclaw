@@ -475,6 +475,10 @@ async function dispatchSlashCommand(
     await refreshChat(host);
   }
 
+  // if (result.action === "new-session") {
+  //   await clearChatHistory(host);
+  // }
+
   scheduleChatScroll(host as unknown as Parameters<typeof scheduleChatScroll>[0]);
 }
 

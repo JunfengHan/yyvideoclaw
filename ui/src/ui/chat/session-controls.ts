@@ -6,6 +6,8 @@ import {
   resolveChatModelOverrideValue,
   resolveChatModelSelectState,
 } from "../chat-model-select-state.ts";
+// Side-effect import: registers the <chat-model-picker> custom element.
+import "./chat-model-picker.ts";
 import { refreshVisibleToolsEffectiveForCurrentSession } from "../controllers/agents.ts";
 import { loadSessions } from "../controllers/sessions.ts";
 import { pushUniqueTrimmedSelectOption } from "../select-options.ts";
@@ -86,32 +88,21 @@ function renderChatModelSelect(state: AppViewState) {
     state.chatLoading || state.chatSending || Boolean(state.chatRunId) || state.chatStream !== null;
   const disabled =
     !state.connected || busy || (state.chatModelsLoading && options.length === 0) || !state.client;
-  const selectedLabel =
-    currentOverride === ""
-      ? defaultLabel
-      : (options.find((entry) => entry.value === currentOverride)?.label ?? currentOverride);
   return html`
     <label class="field chat-controls__session chat-controls__model">
-      <select
+      <chat-model-picker
         data-chat-model-select="true"
-        aria-label="Chat model"
-        title=${selectedLabel}
+        aria-label-text="Chat model"
+        placeholder="Search models..."
+        .options=${options}
+        .value=${currentOverride}
+        .defaultLabel=${defaultLabel}
         ?disabled=${disabled}
-        @change=${async (e: Event) => {
-          const next = (e.target as HTMLSelectElement).value.trim();
+        @change=${async (e: CustomEvent<{ value: string }>) => {
+          const next = (e.detail?.value ?? "").trim();
           await switchChatModel(state, next);
         }}
-      >
-        <option value="" ?selected=${currentOverride === ""}>${defaultLabel}</option>
-        ${repeat(
-          options,
-          (entry) => entry.value,
-          (entry) =>
-            html`<option value=${entry.value} ?selected=${entry.value === currentOverride}>
-              ${entry.label}
-            </option>`,
-        )}
-      </select>
+      ></chat-model-picker>
     </label>
   `;
 }

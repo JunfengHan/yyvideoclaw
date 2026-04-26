@@ -53,7 +53,10 @@ class I18nManager {
     }
     const language =
       typeof globalThis.navigator?.language === "string" ? globalThis.navigator.language : null;
-    return resolveNavigatorLocale(language ?? "");
+    const resolved = resolveNavigatorLocale(language ?? "");
+    // Fall back to Simplified Chinese when the browser language does not match
+    // any supported locale, instead of the source locale (English).
+    return resolved === DEFAULT_LOCALE ? "zh-CN" : resolved;
   }
 
   private loadLocale() {

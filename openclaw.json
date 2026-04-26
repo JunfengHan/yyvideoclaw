@@ -1,0 +1,56 @@
+{
+  "agents": {
+    "defaults": {
+      "workspace": "/Users/johnhan/.openclaw/workspace"
+    }
+  },
+  "gateway": {
+    "mode": "local",
+    "auth": {
+      "mode": "password",
+      "password": "123789"
+    },
+    "port": 18789,
+    "bind": "loopback",
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    },
+    "controlUi": {
+      "allowInsecureAuth": true
+    }
+  },
+  "meta": {
+    "lastTouchedVersion": "2026.4.24",
+    "lastTouchedAt": "2026-04-26T14:54:27.362Z"
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+  "tools": {
+    "profile": "coding"
+  },
+  "skills": {
+    "install": {
+      "nodeManager": "pnpm"
+    }
+  },
+  "wizard": {
+    "lastRunAt": "2026-04-26T07:09:48.490Z",
+    "lastRunVersion": "2026.4.24",
+    "lastRunCommand": "onboard",
+    "lastRunMode": "local"
+  },
+  "models": {
+    "providers": {
+      "openai": {
+        "baseUrl": "https://api.gptsapi.net/v1",
+        "models": []
+      },
+      "anthropic": {
+        "baseUrl": "https://api.gptsapi.net",
+        "models": []
+      }
+    }
+  }
+}
