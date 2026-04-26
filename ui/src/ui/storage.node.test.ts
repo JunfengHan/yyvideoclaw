@@ -65,19 +65,19 @@ describe("loadSettings default gateway URL derivation", () => {
       host: "gateway.example:8443",
       pathname: "/ignored/path",
     });
-    setControlUiBasePath(" /openclaw/ ");
+    setControlUiBasePath(" /yyvideoclaw/ ");
 
-    expect(loadSettings().gatewayUrl).toBe(expectedGatewayUrl("/openclaw"));
+    expect(loadSettings().gatewayUrl).toBe(expectedGatewayUrl("/yyvideoclaw"));
   });
 
   it("infers base path from nested pathname when configured base path is not set", async () => {
     setTestLocation({
       protocol: "http:",
       host: "gateway.example:18789",
-      pathname: "/apps/openclaw/chat",
+      pathname: "/apps/yyvideoclaw/chat",
     });
 
-    expect(loadSettings().gatewayUrl).toBe(expectedGatewayUrl("/apps/openclaw"));
+    expect(loadSettings().gatewayUrl).toBe(expectedGatewayUrl("/apps/yyvideoclaw"));
   });
 
   it("skips node sessionStorage accessors that warn without a storage file", async () => {
