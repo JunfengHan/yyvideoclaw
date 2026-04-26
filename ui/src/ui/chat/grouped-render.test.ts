@@ -15,7 +15,7 @@ vi.mock("../markdown.ts", () => ({
 }));
 
 vi.mock("../views/agents-utils.ts", () => ({
-  agentLogoUrl: () => "/yyvideoclaw-logo.svg",
+  agentLogoUrl: () => "/openclaw-logo.svg",
   isRenderableControlUiAvatarUrl: (value: string) =>
     /^data:image\//i.test(value) || (value.startsWith("/") && !value.startsWith("//")),
   resolveChatAvatarRenderUrl: (
@@ -78,7 +78,7 @@ function renderGroupedMessage(
     renderMessageGroup(group, {
       showReasoning: true,
       showToolCalls: true,
-      assistantName: "YYVideoClaw",
+      assistantName: "OpenClaw",
       assistantAvatar: null,
       ...opts,
     }),
@@ -195,7 +195,7 @@ describe("grouped chat rendering", () => {
     );
 
     const img = container.querySelector("img.chat-avatar");
-    expect(img?.getAttribute("src")).toBe("/yyvideoclaw-logo.svg");
+    expect(img?.getAttribute("src")).toBe("/openclaw-logo.svg");
   });
 
   it("positions delete confirm by message side", () => {
@@ -257,7 +257,7 @@ describe("grouped chat rendering", () => {
 
     const avatar = container.querySelector<HTMLImageElement>(".chat-avatar.assistant");
     expect(avatar).not.toBeNull();
-    expect(avatar?.getAttribute("src")).toBe("/yyvideoclaw-logo.svg");
+    expect(avatar?.getAttribute("src")).toBe("/openclaw-logo.svg");
   });
 
   it("includes cache tokens when rendering assistant context usage", () => {
