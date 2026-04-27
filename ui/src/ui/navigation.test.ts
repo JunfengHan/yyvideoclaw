@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import { i18n } from "../i18n/index.ts";
 import {
   TAB_GROUPS,
   iconForTab,
@@ -14,6 +15,16 @@ import {
 
 /** All valid tab identifiers derived from TAB_GROUPS */
 const ALL_TABS: Tab[] = TAB_GROUPS.flatMap((group) => group.tabs) as Tab[];
+
+// The `titleForTab` / `subtitleForTab` assertions below are authored in
+// English. In shells with `LANG=zh_CN.*`, the i18n manager auto-resolves to
+// `zh-CN` and the assertions fail even though the translation layer is
+// working correctly. Lock the locale to `en` for this test file so the
+// documented contract is verified deterministically regardless of host
+// environment.
+beforeAll(async () => {
+  await i18n.setLocale("en");
+});
 
 describe("iconForTab", () => {
   it("returns a non-empty string for every tab", () => {
@@ -37,6 +48,7 @@ describe("iconForTab", () => {
     expect(iconForTab("config")).toBe("settings");
     expect(iconForTab("debug")).toBe("bug");
     expect(iconForTab("logs")).toBe("scrollText");
+    expect(iconForTab("videoStudio")).toBe("film");
   });
 
   it("returns a fallback icon for unknown tab", () => {
@@ -117,11 +129,13 @@ describe("pathForTab", () => {
   it("returns correct path without base", () => {
     expect(pathForTab("chat")).toBe("/chat");
     expect(pathForTab("overview")).toBe("/overview");
+    expect(pathForTab("videoStudio")).toBe("/video-studio");
   });
 
   it("prepends base path", () => {
     expect(pathForTab("chat", "/ui")).toBe("/ui/chat");
     expect(pathForTab("sessions", "/apps/openclaw")).toBe("/apps/openclaw/sessions");
+    expect(pathForTab("videoStudio", "/ui")).toBe("/ui/video-studio");
   });
 });
 
@@ -132,6 +146,7 @@ describe("tabFromPath", () => {
     expect(tabFromPath("/sessions")).toBe("sessions");
     expect(tabFromPath("/dreaming")).toBe("dreams");
     expect(tabFromPath("/dreams")).toBe("dreams");
+    expect(tabFromPath("/video-studio")).toBe("videoStudio");
   });
 
   it("returns chat for root path", () => {
@@ -189,5 +204,11 @@ describe("TAB_GROUPS", () => {
     const allTabs = TAB_GROUPS.flatMap((g) => g.tabs);
     const uniqueTabs = new Set(allTabs);
     expect(uniqueTabs.size).toBe(allTabs.length);
+  });
+
+  it("registers videoStudio at the tail of the `agent` group", () => {
+    const agentGroup = TAB_GROUPS.find((g) => g.label === "agent");
+    expect(agentGroup).toBeDefined();
+    expect(agentGroup?.tabs.at(-1)).toBe("videoStudio");
   });
 });

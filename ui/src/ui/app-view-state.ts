@@ -365,6 +365,17 @@ export type AppViewState = {
     logsLimit: number;
     logsMaxBytes: number;
     logsAtBottom: boolean;
+    videoStudioLoading: boolean;
+    videoStudioStatus: import("./controllers/video-studio.js").VideoStudioStatusPayload | null;
+    videoStudioError: string | null;
+    videoStudioActionInFlight: "install" | "start" | "stop" | "generate" | null;
+    videoStudioPollTimer: number | null;
+    videoStudioDraft: import("./controllers/video-studio.js").VideoStudioDraft;
+    videoStudioCurrentTask: import("./video-studio/client.js").TaskSnapshot | null;
+    videoStudioHistory: import("./video-studio/client.js").TaskSnapshot[];
+    videoStudioTemplates: import("./video-studio/client.js").FrameTemplate[];
+    videoStudioHistoryExpanded: boolean;
+    videoStudioTaskPollTimer: number | null;
     updateAvailable: import("./types.js").UpdateAvailable | null;
     attentionItems: AttentionItem[];
     paletteOpen: boolean;

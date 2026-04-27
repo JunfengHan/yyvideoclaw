@@ -1,0 +1,16 @@
+{
+  "name": "@openclaw/yy-pixelle-video-provider",
+  "version": "2026.4.27",
+  "private": true,
+  "description": "Deprecated no-op plugin. Video generation now lives inside yyvideoclaw as the Video Studio tab; see ./DEPRECATED.md.",
+  "type": "module",
+  "devDependencies": {
+    "@openclaw/plugin-sdk": "workspace:*"
+  },
+  "deprecated": "Superseded by the embedded Video Studio tab in yyvideoclaw. See ./DEPRECATED.md.",
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

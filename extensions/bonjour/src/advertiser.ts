@@ -1,7 +1,7 @@
 import type { PluginLogger } from "openclaw/plugin-sdk/plugin-entry";
 import { isTruthyEnvValue } from "openclaw/plugin-sdk/runtime-env";
 import { classifyCiaoUnhandledRejection } from "./ciao.js";
-import { formatBonjourError } from "./errors.js";
+import { formatBonjourError, isBonjourServerClosedError } from "./errors.js";
 
 export type GatewayBonjourAdvertiser = {
   stop: () => Promise<void>;
@@ -70,6 +70,7 @@ const WATCHDOG_INTERVAL_MS = 5_000;
 const REPAIR_DEBOUNCE_MS = 30_000;
 const STUCK_ANNOUNCING_MS = 8_000;
 const BONJOUR_ANNOUNCED_STATE = "announced";
+const BONJOUR_TERMINAL_SERVICE_STATES = new Set(["destroyed", "destroying", "unannounced"]);
 const CIAO_SELF_PROBE_RETRY_FRAGMENT =
   "failed probing with reason: Error: Can't probe for a service which is announced already.";
 
@@ -135,6 +136,14 @@ function serviceSummary(label: string, svc: BonjourService): string {
 
 function isAnnouncedState(state: string) {
   return state === BONJOUR_ANNOUNCED_STATE;
+}
+
+function getServiceState(svc: BonjourService): string {
+  return typeof svc.serviceState === "string" ? svc.serviceState : "unknown";
+}
+
+function isTerminalServiceState(state: string): boolean {
+  return BONJOUR_TERMINAL_SERVICE_STATES.has(state);
 }
 
 function shouldSuppressCiaoConsoleLog(args: unknown[]): boolean {
@@ -303,20 +312,40 @@ export async function startGatewayBonjourAdvertiser(
     function startAdvertising(services: Array<{ label: string; svc: BonjourService }>) {
       for (const { label, svc } of services) {
         try {
+          const serviceState = getServiceState(svc);
+          if (isTerminalServiceState(serviceState)) {
+            logger.debug(
+              `bonjour: skipping advertise for terminal service (${serviceSummary(label, svc)})`,
+            );
+            continue;
+          }
+
           void svc
             .advertise()
             .then(() => {
               logger.info(`bonjour: advertised ${serviceSummary(label, svc)}`);
             })
             .catch((err) => {
-              logger.warn(
-                `bonjour: advertise failed (${serviceSummary(label, svc)}): ${formatBonjourError(err)}`,
-              );
+              const errorMsg = formatBonjourError(err);
+              if (isBonjourServerClosedError(err)) {
+                logger.debug(
+                  `bonjour: advertise cancelled due to server closure (${serviceSummary(label, svc)}): ${errorMsg}`,
+                );
+              } else {
+                logger.warn(
+                  `bonjour: advertise failed (${serviceSummary(label, svc)}): ${errorMsg}`,
+                );
+              }
             });
         } catch (err) {
-          logger.warn(
-            `bonjour: advertise threw (${serviceSummary(label, svc)}): ${formatBonjourError(err)}`,
-          );
+          const errorMsg = formatBonjourError(err);
+          if (isBonjourServerClosedError(err)) {
+            logger.debug(
+              `bonjour: advertise threw due to server closure (${serviceSummary(label, svc)}): ${errorMsg}`,
+            );
+          } else {
+            logger.warn(`bonjour: advertise threw (${serviceSummary(label, svc)}): ${errorMsg}`);
+          }
         }
       }
     }
@@ -337,7 +366,7 @@ export async function startGatewayBonjourAdvertiser(
     const updateStateTrackers = (services: Array<{ label: string; svc: BonjourService }>) => {
       const now = Date.now();
       for (const { label, svc } of services) {
-        const nextState = typeof svc.serviceState === "string" ? svc.serviceState : "unknown";
+        const nextState = getServiceState(svc);
         const current = stateTracker.get(label);
         const nextEnteredAt =
           current && !isAnnouncedState(current.state) && !isAnnouncedState(nextState)
@@ -360,6 +389,9 @@ export async function startGatewayBonjourAdvertiser(
         logger.warn(`bonjour: restarting advertiser (${reason})`);
         const previous = cycle;
         await stopCycle(previous);
+        if (stopped) {
+          return;
+        }
         cycle = createCycle();
         stateTracker.clear();
         attachConflictListeners(cycle.services);
@@ -377,10 +409,7 @@ export async function startGatewayBonjourAdvertiser(
       }
       updateStateTrackers(cycle.services);
       for (const { label, svc } of cycle.services) {
-        const stateUnknown = (svc as { serviceState?: unknown }).serviceState;
-        if (typeof stateUnknown !== "string") {
-          continue;
-        }
+        const stateUnknown = getServiceState(svc);
         const tracked = stateTracker.get(label);
         if (
           stateUnknown !== "announced" &&
@@ -395,7 +424,11 @@ export async function startGatewayBonjourAdvertiser(
           );
           return;
         }
-        if (stateUnknown === "announced" || stateUnknown === "announcing") {
+        if (
+          stateUnknown === "announced" ||
+          stateUnknown === "announcing" ||
+          isTerminalServiceState(stateUnknown)
+        ) {
           continue;
         }
 
@@ -420,14 +453,28 @@ export async function startGatewayBonjourAdvertiser(
         );
         try {
           void svc.advertise().catch((err) => {
+            const errorMsg = formatBonjourError(err);
+            if (stopped || isBonjourServerClosedError(err)) {
+              logger.debug(
+                `bonjour: watchdog re-advertise cancelled (${serviceSummary(label, svc)}): ${errorMsg}`,
+              );
+              return;
+            }
             logger.warn(
-              `bonjour: watchdog re-advertise failed (${serviceSummary(label, svc)}): ${formatBonjourError(err)}`,
+              `bonjour: watchdog re-advertise failed (${serviceSummary(label, svc)}): ${errorMsg}`,
             );
           });
         } catch (err) {
-          logger.warn(
-            `bonjour: watchdog re-advertise threw (${serviceSummary(label, svc)}): ${formatBonjourError(err)}`,
-          );
+          const errorMsg = formatBonjourError(err);
+          if (stopped || isBonjourServerClosedError(err)) {
+            logger.debug(
+              `bonjour: watchdog re-advertise threw during shutdown (${serviceSummary(label, svc)}): ${errorMsg}`,
+            );
+          } else {
+            logger.warn(
+              `bonjour: watchdog re-advertise threw (${serviceSummary(label, svc)}): ${errorMsg}`,
+            );
+          }
         }
       }
     }, WATCHDOG_INTERVAL_MS);

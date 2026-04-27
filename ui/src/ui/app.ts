@@ -513,6 +513,25 @@ export class OpenClawApp extends LitElement {
   @state() logsLimit = 500;
   @state() logsMaxBytes = 250_000;
   @state() logsAtBottom = true;
+  @state() videoStudioLoading = false;
+  @state() videoStudioStatus:
+    | import("./controllers/video-studio.ts").VideoStudioStatusPayload
+    | null = null;
+  @state() videoStudioError: string | null = null;
+  @state() videoStudioActionInFlight: "install" | "start" | "stop" | "generate" | null = null;
+  videoStudioPollTimer: number | null = null;
+  @state() videoStudioDraft: import("./controllers/video-studio.ts").VideoStudioDraft = {
+    title: "",
+    narration: "",
+    aspectRatio: "9:16",
+    pipeline: "standard",
+    frameTemplate: null,
+  };
+  @state() videoStudioCurrentTask: import("./video-studio/client.ts").TaskSnapshot | null = null;
+  @state() videoStudioHistory: import("./video-studio/client.ts").TaskSnapshot[] = [];
+  @state() videoStudioTemplates: import("./video-studio/client.ts").FrameTemplate[] = [];
+  @state() videoStudioHistoryExpanded = true;
+  videoStudioTaskPollTimer: number | null = null;
 
   client: GatewayBrowserClient | null = null;
   private chatScrollFrame: number | null = null;

@@ -112,6 +112,47 @@ export function formatUncaughtError(err: unknown): string {
   return formatErrorMessage(err);
 }
 
+const CLOSED_MDNS_SERVER_MESSAGE_RE =
+  /\bERR_SERVER_CLOSED\b|cannot send packets on a closed mdns server!?/iu;
+
+export function isClosedMdnsServerError(err: unknown): boolean {
+  const candidates = collectErrorGraphCandidates(err, (current) => [
+    current.cause,
+    current.reason,
+    current.original,
+    current.error,
+    current.data,
+  ]);
+
+  for (const candidate of candidates) {
+    const code = extractErrorCode(candidate);
+    if (typeof code === "string" && code.trim().toUpperCase() === "ERR_SERVER_CLOSED") {
+      return true;
+    }
+
+    if (typeof candidate === "string") {
+      if (CLOSED_MDNS_SERVER_MESSAGE_RE.test(candidate)) {
+        return true;
+      }
+      continue;
+    }
+
+    if (!candidate || typeof candidate !== "object") {
+      continue;
+    }
+
+    const message =
+      "message" in candidate && typeof candidate.message === "string" ? candidate.message : "";
+    const stack =
+      "stack" in candidate && typeof candidate.stack === "string" ? candidate.stack : "";
+    if (CLOSED_MDNS_SERVER_MESSAGE_RE.test(message) || CLOSED_MDNS_SERVER_MESSAGE_RE.test(stack)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export type ErrorKind = "refusal" | "timeout" | "rate_limit" | "context_length" | "unknown";
 
 export function detectErrorKind(err: unknown): ErrorKind | undefined {

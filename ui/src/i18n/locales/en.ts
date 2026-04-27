@@ -164,6 +164,7 @@ export const en: TranslationMap = {
     debug: "Debug",
     logs: "Logs",
     dreams: "Dreaming",
+    videoStudio: "Video Studio",
   },
   subtitles: {
     agents: "Workspaces, tools, identities.",
@@ -185,6 +186,60 @@ export const en: TranslationMap = {
     debug: "Snapshots, events, RPC.",
     logs: "Live gateway logs.",
     dreams: "Memory dreaming, consolidation, and reflection.",
+    videoStudio: "Topic-to-video studio powered by the embedded Pixelle backend.",
+  },
+  videoStudio: {
+    heading: "Video Studio",
+    topic: {
+      title: "Topic",
+      titleLabel: "Title",
+      titlePlaceholder: "Short title (optional)",
+      narrationLabel: "Narration",
+      narrationPlaceholder: "What should the video be about?",
+      aspectRatio: "Aspect ratio",
+      frameTemplate: "Frame template",
+      frameTemplatePlaceholder: "Default",
+    },
+    pipeline: {
+      title: "Pipeline",
+      standard: "Standard",
+      assetBased: "Asset-based",
+      linear: "Linear",
+      custom: "Custom",
+    },
+    generate: {
+      button: "Generate",
+      generating: "Generating…",
+      phases: {
+        title: "Title",
+        narration: "Narration",
+        images: "Images",
+        frames: "Frames",
+        tts: "TTS",
+        compose: "Compose",
+      },
+    },
+    result: {
+      title: "Result",
+      download: "Download",
+      copyLink: "Copy link",
+      openInFinder: "Open in Finder",
+      regenerate: "Regenerate",
+      empty: "No video yet — click Generate to start.",
+    },
+    history: {
+      title: "History",
+      empty: "No past generations.",
+      toggle: "Toggle history",
+    },
+    state: {
+      notInstalled: "Video Studio backend is not installed.",
+      install: "Install Video Studio",
+      starting: "Starting Video Studio backend…",
+      backendError: "Video backend failed to start.",
+      viewLogs: "View logs",
+      featureDisabled: "Video Studio is disabled for this build.",
+    },
   },
   overview: {
     access: {

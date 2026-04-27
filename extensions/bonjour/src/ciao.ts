@@ -1,4 +1,4 @@
-import { formatBonjourError } from "./errors.js";
+import { formatBonjourError, isBonjourServerClosedError } from "./errors.js";
 
 const CIAO_CANCELLATION_MESSAGE_RE = /^CIAO (?:ANNOUNCEMENT|PROBING) CANCELLED\b/u;
 const CIAO_INTERFACE_ASSERTION_MESSAGE_RE =
@@ -6,7 +6,8 @@ const CIAO_INTERFACE_ASSERTION_MESSAGE_RE =
 
 export type CiaoUnhandledRejectionClassification =
   | { kind: "cancellation"; formatted: string }
-  | { kind: "interface-assertion"; formatted: string };
+  | { kind: "interface-assertion"; formatted: string }
+  | { kind: "server-closed"; formatted: string };
 
 export function classifyCiaoUnhandledRejection(
   reason: unknown,
@@ -18,6 +19,9 @@ export function classifyCiaoUnhandledRejection(
   }
   if (CIAO_INTERFACE_ASSERTION_MESSAGE_RE.test(message)) {
     return { kind: "interface-assertion", formatted };
+  }
+  if (isBonjourServerClosedError(reason)) {
+    return { kind: "server-closed", formatted };
   }
   return null;
 }

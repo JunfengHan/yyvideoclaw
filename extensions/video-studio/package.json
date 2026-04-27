@@ -1,0 +1,15 @@
+{
+  "name": "@openclaw/video-studio-provider",
+  "version": "2026.4.27",
+  "private": true,
+  "description": "OpenClaw Video Studio — embedded yy-Pixelle-Video runtime plugin",
+  "type": "module",
+  "devDependencies": {
+    "@openclaw/plugin-sdk": "workspace:*"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

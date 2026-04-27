@@ -4,11 +4,17 @@ import type { LogsState } from "./controllers/logs.ts";
 import { loadLogs } from "./controllers/logs.ts";
 import type { NodesState } from "./controllers/nodes.ts";
 import { loadNodes } from "./controllers/nodes.ts";
+import {
+  loadVideoStudioStatusState,
+  type VideoStudioControllerState,
+  type VideoStudioHttpDeps,
+} from "./controllers/video-studio.ts";
 
 type PollingHost = {
   nodesPollInterval: number | null;
   logsPollInterval: number | null;
   debugPollInterval: number | null;
+  videoStudioPollTimer?: number | null;
   tab: string;
 };
 
@@ -68,4 +74,28 @@ export function stopDebugPolling(host: PollingHost) {
   }
   clearInterval(host.debugPollInterval);
   host.debugPollInterval = null;
+}
+
+export function startVideoStudioPolling(
+  host: PollingHost & VideoStudioControllerState & VideoStudioHttpDeps,
+) {
+  if (host.videoStudioPollTimer != null) {
+    return;
+  }
+  // Immediate fetch so the view doesn't wait 3s on first open.
+  void loadVideoStudioStatusState(host);
+  host.videoStudioPollTimer = window.setInterval(() => {
+    if (host.tab !== "videoStudio") {
+      return;
+    }
+    void loadVideoStudioStatusState(host);
+  }, 3000);
+}
+
+export function stopVideoStudioPolling(host: PollingHost) {
+  if (host.videoStudioPollTimer == null) {
+    return;
+  }
+  clearInterval(host.videoStudioPollTimer);
+  host.videoStudioPollTimer = null;
 }

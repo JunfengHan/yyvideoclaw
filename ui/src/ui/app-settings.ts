@@ -6,6 +6,8 @@ import {
   stopLogsPolling,
   startDebugPolling,
   stopDebugPolling,
+  startVideoStudioPolling,
+  stopVideoStudioPolling,
 } from "./app-polling.ts";
 import { scheduleChatScroll, scheduleLogsScroll } from "./app-scroll.ts";
 import { loadAgentFiles, type AgentFilesState } from "./controllers/agent-files.ts";
@@ -547,6 +549,9 @@ function applyTabSelection(
   );
   (next === "debug" ? startDebugPolling : stopDebugPolling)(
     host as unknown as Parameters<typeof startDebugPolling>[0],
+  );
+  (next === "videoStudio" ? startVideoStudioPolling : stopVideoStudioPolling)(
+    host as unknown as Parameters<typeof startVideoStudioPolling>[0],
   );
 
   if (options.refreshPolicy === "always" || host.connected) {

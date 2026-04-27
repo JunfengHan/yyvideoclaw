@@ -1,0 +1,35 @@
+{
+  "id": "yy-pixelle-video",
+  "enabledByDefault": false,
+  "contracts": {
+    "videoGenerationProviders": ["yy-pixelle-video"]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "endpoint": {
+        "type": "string",
+        "description": "Base URL of the yy-Pixelle-Video service (e.g. http://127.0.0.1:8000)."
+      },
+      "apiKey": {
+        "type": "string",
+        "description": "Optional bearer token forwarded as Authorization header to the yy-Pixelle-Video service."
+      },
+      "pollIntervalMs": {
+        "type": "integer",
+        "minimum": 500,
+        "description": "Interval between task-status polls. Defaults to 5000 ms."
+      },
+      "timeoutMs": {
+        "type": "integer",
+        "minimum": 1000,
+        "description": "Upper bound on total polling duration. Defaults to 50 minutes."
+      },
+      "allowPrivateNetwork": {
+        "type": "boolean",
+        "description": "Allow contacting private/loopback hosts. Required for local Pixelle service; defaults to true for loopback."
+      }
+    }
+  }
+}

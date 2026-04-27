@@ -6,6 +6,8 @@ Docs: https://docs.openclaw.ai
 
 ### Changes
 
+- Video Studio: wire the Video Studio tab end-to-end — add a runtime plugin at `extensions/video-studio/` exposing `/video-studio/{status,install,start,stop,preflight,proxy}` on top of `PixelleBackendSupervisor`, add a matching UI controller + 3s status polling + 2s per-task polling, and thread real draft / history / install / start / generate / regenerate / select-history / download / copy-link / open-logs callbacks through `app-render.ts` so the tab leaves the permanent "starting" placeholder state and drives real topic→video generations.
+- Video Studio: add an embedded topic-to-video tab that hosts the upstream `yy-Pixelle-Video` project as a managed subprocess, with zero-config LLM routing through a transparent `llm-passthrough` agent, loopback-only loopback token, sandboxed outputs under `<userData>/video-studio/`, a native Lit view, Settings integration, and diagnostics (see `docs/features/video-studio.md` and `SECURITY.md`).
 - Plugins/activation: expose activation plan reasons and a richer plan API so callers can inspect why a plugin was selected while preserving existing id-list activation behavior. (#70943) Thanks @vincentkoc.
 - Plugins/source metadata: expose normalized install-source facts on provider and channel catalogs so onboarding can explain npm pinning, integrity state, and local availability before runtime loads. (#70951) Thanks @vincentkoc.
 - Plugins/catalog: pin the official external WeCom channel source to an exact npm release plus dist integrity, with a guard that official external sources stay integrity-pinned. (#70997) Thanks @vincentkoc.

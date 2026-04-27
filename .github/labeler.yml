@@ -387,3 +387,7 @@
   - changed-files:
       - any-glob-to-any-file:
           - "extensions/fal/**"
+"extensions: yy-pixelle-video":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "extensions/yy-pixelle-video/**"

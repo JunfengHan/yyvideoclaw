@@ -326,3 +326,33 @@ Run locally:
 pip install detect-secrets==1.5.0
 detect-secrets scan --baseline .secrets.baseline
 ```
+
+## Video Studio (embedded Pixelle backend)
+
+The **Video Studio** tab hosts the open-source `yy-Pixelle-Video` project as a
+managed subprocess of yyvideoclaw. It does **not** expand the application's
+external attack surface:
+
+- **Loopback-only**: the Pixelle FastAPI server is forced to bind
+  `127.0.0.1:<ephemeral-port>` in embedded mode; non-loopback clients cannot
+  reach it even if a port is guessed.
+- **No external API keys required or stored**: Video Studio reuses
+  yyvideoclaw's existing LLM providers through a transparent
+  `llm-passthrough` agent. Users never enter a Pixelle-specific API key and
+  none are persisted for this feature.
+- **Ephemeral per-process token**: each Pixelle subprocess spawn receives a
+  one-shot bearer token that is (a) generated in memory, (b) injected via
+  environment variable, (c) scoped to `POST /v1/chat/completions` only, and
+  (d) revoked the moment the child exits. The token is never written to
+  disk, never logged, and never displayed in the UI.
+- **Sandboxed outputs**: generated media lives under
+  `<userData>/video-studio/outputs/` and is the only path the Pixelle
+  subprocess is allowed to write to via yyvideoclaw's
+  `HostEnvSecurityPolicy` allow-list.
+- **Diagnostics redaction**: the diagnostics module scrubs every registered
+  token plus any `Authorization: Bearer …` header from log ring buffers
+  before exposing them to the Debug tab or the "Copy diagnostics" bundle.
+
+If a user uninstalls Video Studio, the `<userData>/video-studio/` directory
+is deleted in full and no traces remain in the yyvideoclaw application data
+directory.

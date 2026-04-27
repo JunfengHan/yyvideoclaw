@@ -8,7 +8,7 @@ export const TAB_GROUPS = [
     label: "control",
     tabs: ["overview", "channels", "instances", "sessions", "usage", "cron"],
   },
-  { label: "agent", tabs: ["agents", "skills", "nodes", "dreams"] },
+  { label: "agent", tabs: ["agents", "skills", "nodes", "dreams", "videoStudio"] },
   {
     label: "settings",
     tabs: [
@@ -43,7 +43,8 @@ export type Tab =
   | "aiAgents"
   | "debug"
   | "logs"
-  | "dreams";
+  | "dreams"
+  | "videoStudio";
 
 const TAB_PATHS: Record<Tab, string> = {
   agents: "/agents",
@@ -65,6 +66,7 @@ const TAB_PATHS: Record<Tab, string> = {
   debug: "/debug",
   logs: "/logs",
   dreams: "/dreaming",
+  videoStudio: "/video-studio",
 };
 
 const PATH_ALIASES: Record<string, Tab> = {
@@ -195,6 +197,8 @@ export function iconForTab(tab: Tab): IconName {
       return "scrollText";
     case "dreams":
       return "moon";
+    case "videoStudio":
+      return "film";
     default:
       return "folder";
   }

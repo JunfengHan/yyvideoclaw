@@ -1,0 +1,21 @@
+{
+  "id": "video-studio",
+  "enabledByDefault": true,
+  "providers": [],
+  "contracts": {},
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "pixelleSrc": {
+        "type": "string",
+        "description": "Absolute path to the yy-Pixelle-Video source tree. Defaults to a sibling checkout next to yyvideoclaw."
+      },
+      "autoStartOnTabEnter": {
+        "type": "boolean",
+        "default": true,
+        "description": "Lazy-start the Pixelle backend the first time the user opens the Video Studio tab."
+      }
+    }
+  }
+}

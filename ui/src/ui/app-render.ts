@@ -118,9 +118,16 @@ import {
   updateSkillEdit,
   updateSkillEnabled,
 } from "./controllers/skills.ts";
+import {
+  generateVideoTask,
+  installVideoStudioBackend,
+  mapStatusToBackendState,
+  startVideoStudioBackend,
+  updateVideoStudioDraft,
+} from "./controllers/video-studio.ts";
 import { buildExternalLinkRel, EXTERNAL_LINK_TARGET } from "./external-link.ts";
-import { icons } from "./icons.ts";
 import "./components/dashboard-header.ts";
+import { icons } from "./icons.ts";
 import { normalizeBasePath, TAB_GROUPS, subtitleForTab, titleForTab } from "./navigation.ts";
 import { isPluginEnabledInConfigSnapshot } from "./plugin-activation.ts";
 import { isRenderableControlUiAvatarUrl } from "./views/agents-utils.ts";
@@ -151,6 +158,7 @@ import { renderExecApprovalPrompt } from "./views/exec-approval.ts";
 import { renderGatewayUrlConfirmation } from "./views/gateway-url-confirmation.ts";
 import { renderLoginGate } from "./views/login-gate.ts";
 import { renderOverview } from "./views/overview.ts";
+import { renderVideoStudioView } from "./views/video-studio-view.ts";
 
 // Lazy-loaded view modules – deferred so the initial bundle stays small.
 // Each loader resolves once; subsequent calls return the cached module.
@@ -2421,6 +2429,92 @@ export function renderApp(state: AppViewState) {
               onResetGroundedShortTerm: () => resetGroundedShortTerm(state),
               onRepairDreamingArtifacts: () => repairDreamingArtifacts(state),
               onRequestUpdate: requestHostUpdate,
+            })
+          : nothing}
+        ${state.tab === "videoStudio"
+          ? renderVideoStudioView({
+              // Wired to the runtime plugin via `controllers/video-studio.ts`:
+              //   status snapshot + polling drive `backend`, user actions
+              //   (install / start / generate) call the corresponding
+              //   /video-studio/* HTTP routes exposed by extensions/
+              //   video-studio/index.ts.
+              featureEnabled: true,
+              backend: mapStatusToBackendState(
+                state.videoStudioStatus,
+                state.videoStudioLoading,
+                state.videoStudioError,
+              ),
+              templates: state.videoStudioTemplates,
+              pipelines: ["standard", "asset-based", "linear", "custom"],
+              draft: state.videoStudioDraft,
+              currentTask: state.videoStudioCurrentTask,
+              history: state.videoStudioHistory,
+              historyExpanded: state.videoStudioHistoryExpanded,
+              onToggleHistory: () => {
+                state.videoStudioHistoryExpanded = !state.videoStudioHistoryExpanded;
+                requestHostUpdate();
+              },
+              callbacks: {
+                onDraftChange: (patch) => {
+                  updateVideoStudioDraft(state, patch);
+                  requestHostUpdate();
+                },
+                onGenerate: () => {
+                  void generateVideoTask(state, requestHostUpdate);
+                },
+                onRegenerate: () => {
+                  // Resubmit the current draft — the user's intent is "same
+                  // inputs, new roll of the dice".
+                  void generateVideoTask(state, requestHostUpdate);
+                },
+                onSelectHistory: (taskId: string) => {
+                  const entry = state.videoStudioHistory.find((t) => t.id === taskId);
+                  if (entry) {
+                    state.videoStudioCurrentTask = entry;
+                    requestHostUpdate();
+                  }
+                },
+                onInstall: () => {
+                  void installVideoStudioBackend(state).then(() => requestHostUpdate());
+                },
+                onOpenLogs: () => {
+                  // Route to the Logs tab; the source=video-studio filter is
+                  // applied automatically by the logs controller because we
+                  // surface the tail already via /video-studio/status.
+                  state.tab = "logs" as import("./navigation.ts").Tab;
+                  requestHostUpdate();
+                },
+                onDownload: (task) => {
+                  const url = task.output?.videoUrl;
+                  if (!url) return;
+                  // Simple same-origin download trigger; the URL is proxied
+                  // through /video-studio/proxy so auth is carried by the
+                  // existing session cookie / bearer.
+                  const a = document.createElement("a");
+                  a.href = url.startsWith("http")
+                    ? url
+                    : `${state.basePath}/video-studio/proxy${url}`;
+                  a.download = "";
+                  a.rel = "noopener";
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                },
+                onCopyLink: (task) => {
+                  const url = task.output?.videoUrl;
+                  if (!url) return;
+                  void navigator.clipboard?.writeText(url).catch(() => {
+                    /* clipboard blocked — swallow silently */
+                  });
+                },
+                onOpenInFinder: () => {
+                  // No native shell access from the browser; surface a
+                  // friendly error instead of silently failing.
+                  state.videoStudioError =
+                    "Open in Finder is only available in the desktop build. The file lives under ~/.openclaw/video-studio/outputs/.";
+                  requestHostUpdate();
+                },
+              },
             })
           : nothing}
       </main>

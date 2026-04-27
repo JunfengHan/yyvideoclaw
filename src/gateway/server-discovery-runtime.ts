@@ -59,9 +59,17 @@ export async function startGatewayDiscovery(params: {
           stops.push(started.stop);
         }
       } catch (err) {
-        params.logDiscovery.warn(
-          `gateway discovery service failed (${entry.service.id}, plugin=${entry.pluginId}): ${String(err)}`,
-        );
+        const errorMsg = String(err);
+        // 检查是否为服务器关闭错误，如果是则记录为调试信息而非警告
+        if (errorMsg.includes("ERR_SERVER_CLOSED") || errorMsg.includes("closed mdns server")) {
+          params.logDiscovery.debug(
+            `gateway discovery service cancelled due to server closure (${entry.service.id}, plugin=${entry.pluginId}): ${errorMsg}`,
+          );
+        } else {
+          params.logDiscovery.warn(
+            `gateway discovery service failed (${entry.service.id}, plugin=${entry.pluginId}): ${errorMsg}`,
+          );
+        }
       }
     }
     if (stops.length > 0) {
@@ -70,7 +78,15 @@ export async function startGatewayDiscovery(params: {
           try {
             await stop();
           } catch (err) {
-            params.logDiscovery.warn(`gateway discovery stop failed: ${String(err)}`);
+            const errorMsg = String(err);
+            // 检查是否为服务器关闭错误，如果是则记录为调试信息而非警告
+            if (errorMsg.includes("ERR_SERVER_CLOSED") || errorMsg.includes("closed mdns server")) {
+              params.logDiscovery.debug(
+                `gateway discovery stop cancelled due to server closure: ${errorMsg}`,
+              );
+            } else {
+              params.logDiscovery.warn(`gateway discovery stop failed: ${errorMsg}`);
+            }
           }
         }
       };

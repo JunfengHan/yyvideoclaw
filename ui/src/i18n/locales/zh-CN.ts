@@ -165,6 +165,7 @@ export const zh_CN: TranslationMap = {
     debug: "调试",
     logs: "日志",
     dreams: "梦境",
+    videoStudio: "视频工作室",
   },
   subtitles: {
     agents: "工作区、工具、身份。",
@@ -186,6 +187,60 @@ export const zh_CN: TranslationMap = {
     debug: "快照、事件、RPC。",
     logs: "实时网关日志。",
     dreams: "睡眠时进行记忆巩固。",
+    videoStudio: "由内嵌 Pixelle 后端驱动的主题转短视频工作室。",
+  },
+  videoStudio: {
+    heading: "视频工作室",
+    topic: {
+      title: "主题",
+      titleLabel: "标题",
+      titlePlaceholder: "简短标题（可选）",
+      narrationLabel: "文案",
+      narrationPlaceholder: "希望视频讲些什么？",
+      aspectRatio: "画幅",
+      frameTemplate: "画面模板",
+      frameTemplatePlaceholder: "默认",
+    },
+    pipeline: {
+      title: "流水线",
+      standard: "标准",
+      assetBased: "素材驱动",
+      linear: "线性",
+      custom: "自定义",
+    },
+    generate: {
+      button: "开始生成",
+      generating: "生成中…",
+      phases: {
+        title: "标题",
+        narration: "文案",
+        images: "配图",
+        frames: "画面",
+        tts: "配音",
+        compose: "合成",
+      },
+    },
+    result: {
+      title: "结果",
+      download: "下载",
+      copyLink: "复制链接",
+      openInFinder: "在 Finder 中显示",
+      regenerate: "重新生成",
+      empty: "尚无视频 — 点击生成开始。",
+    },
+    history: {
+      title: "历史",
+      empty: "暂无生成记录。",
+      toggle: "切换历史面板",
+    },
+    state: {
+      notInstalled: "视频工作室后端尚未安装。",
+      install: "安装视频工作室",
+      starting: "正在启动视频工作室后端…",
+      backendError: "视频后端启动失败。",
+      viewLogs: "查看日志",
+      featureDisabled: "当前构建未启用视频工作室。",
+    },
   },
   overview: {
     access: {
