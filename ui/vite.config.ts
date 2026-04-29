@@ -91,7 +91,11 @@ function gatewayProxy(
 
 export default defineConfig(() => {
   const envBase = process.env.OPENCLAW_CONTROL_UI_BASE_PATH?.trim();
-  const base = envBase ? normalizeBase(envBase) : "./";
+  // Dev default is absolute `/` so that SPA history routes like
+  // `/video-studio` resolve `<script src="./assets/xxx.js">` to
+  // `/assets/xxx.js` regardless of the current URL. Build output keeps
+  // the original behaviour via the envBase path.
+  const base = envBase ? normalizeBase(envBase) : "/";
   // Where the local gateway is listening. Aligns with `gateway.port` in
   // openclaw.json (default 18789); override via env if you run multiple
   // gateway instances side-by-side.
@@ -125,8 +129,19 @@ export default defineConfig(() => {
       // different tokens in dev. The `/gateway` WS proxy is left alone
       // because the JSON-RPC handshake already carries its own auth
       // payload.
+      //
+      // IMPORTANT: only proxy the concrete API subpaths (status, install,
+      // start, stop, preflight, proxy). The bare `/video-studio` URL is a
+      // SPA history route and must fall back to `index.html`, not the
+      // JSON status endpoint.
       proxy: {
-        "/video-studio": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
+        "/video-studio/status": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
+        "/video-studio/install": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
+        "/video-studio/start": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
+        "/video-studio/stop": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
+        "/video-studio/restart": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
+        "/video-studio/preflight": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
+        "/video-studio/proxy": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
         "/v1": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
         "/plugins": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
         "/gateway": gatewayProxy(gatewayTarget, null, { ws: true }),

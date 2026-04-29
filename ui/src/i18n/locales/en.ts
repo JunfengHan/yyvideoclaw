@@ -235,8 +235,12 @@ export const en: TranslationMap = {
     state: {
       notInstalled: "Video Studio backend is not installed.",
       install: "Install Video Studio",
+      idle: "Video Studio backend is installed but not running.",
+      start: "Start Video Studio",
       starting: "Starting Video Studio backend…",
       backendError: "Video backend failed to start.",
+      idleAutoStopped: "Video backend paused after inactivity.",
+      restart: "Restart backend",
       viewLogs: "View logs",
       featureDisabled: "Video Studio is disabled for this build.",
     },

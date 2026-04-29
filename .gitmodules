@@ -1,0 +1,3 @@
+[submodule "vendor/pixelle-video"]
+	path = vendor/pixelle-video
+	url = git@github.com:JunfengHan/yy-Pixelle-Video.git

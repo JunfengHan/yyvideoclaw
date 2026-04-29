@@ -1,4 +1,4 @@
-// Pixelle backend supervisor — owns the Python FastAPI subprocess lifecycle
+// Pixelle backend supervisor — owns the Python Streamlit subprocess lifecycle
 // on behalf of the embedded Video Studio tab.
 //
 // Responsibilities (per requirements §2, §4.5, §9, §10):
@@ -8,19 +8,25 @@
 //     "Start Backend" button in Settings).
 //   - Port selection: allocate an ephemeral loopback port so we never clash
 //     with user-bound services.
+//   - Single-process model: spawn Pixelle's native Streamlit UI rooted at
+//     the pixelle source checkout. The Control UI iframes this URL directly.
+//     Upstream Pixelle ships no separate FastAPI server — Streamlit owns the
+//     entire Python runtime, so the supervisor tracks exactly one child per
+//     start cycle (the legacy "FastAPI + attached Streamlit sidecar" model
+//     was removed once we confirmed pixelle-video has no `api.app:app`).
 //   - Env injection: build `PIXELLE_*` env vars from the caller's config so
 //     Pixelle's LLM provider points back at yyvideoclaw's Gateway with the
 //     one-shot `internal` bearer token issued by `internal-token.ts`.
-//   - Health check: poll `GET /health` until it returns 200 or the 30s
-//     timeout elapses, at which point we surface an `InstallError` /
-//     `HealthTimeoutError` to the UI.
+//   - Health check: poll `GET /_stcore/health` (Streamlit's own readiness
+//     endpoint) until it returns 200 or the 30s timeout elapses, at which
+//     point we surface a `HealthTimeoutError` to the UI.
 //   - Log forwarding: stream stdout+stderr line-by-line to a pluggable
 //     `onLogLine` handler so the Logs tab can present them with
 //     `source=video-studio`.
 //   - Graceful shutdown: SIGTERM, then SIGKILL after 10s if the child has
 //     not exited. Always invoked on explicit `stop()`, on `restart()`, and
 //     from the app-exit hook the caller is expected to wire up.
-//   - Crash recovery: if the child exits unexpectedly, retry at 2s / 5s /
+//   - Crash recovery: if Streamlit exits unexpectedly, retry at 2s / 5s /
 //     15s and then fall into a terminal `stopped` state with an event so
 //     the UI can show `backend crashed (retrying...)` or the error card.
 //   - Idle auto-stop: after `autoStopIdleMinutes` of no activity, stop the
@@ -46,6 +52,16 @@ export type SupervisorStatus =
       readonly port: number;
       readonly startedAt: Date;
       readonly command: string;
+      /**
+       * Alias of `pid`; kept for wire-compat with the old FastAPI+sidecar
+       * shape the Control UI / extension layer was built against. Since
+       * Streamlit is now the only process, this always equals `pid`.
+       */
+      readonly streamlitPid: number | null;
+      /** Alias of `port` (see `streamlitPid` note). */
+      readonly streamlitPort: number | null;
+      /** `http://127.0.0.1:<port>` — what the iframe embeds. */
+      readonly streamlitUrl: string | null;
     }
   | {
       readonly state: "retrying";
@@ -55,7 +71,10 @@ export type SupervisorStatus =
     }
   | { readonly state: "stopped"; readonly reason: string };
 
-export type LogLine = { readonly stream: "stdout" | "stderr"; readonly line: string };
+export type LogLine = {
+  readonly stream: "stdout" | "stderr";
+  readonly line: string;
+};
 
 /** Minimal shape of `node:child_process.spawn`'s return value we need. */
 export type SupervisorChildProcess = Pick<ChildProcess, "pid" | "kill"> & {
@@ -103,6 +122,18 @@ export type SupervisorRuntimeConfig = {
   readonly defaultModel: string;
   /** Absolute path to the Pixelle data root (media outputs, cache). */
   readonly dataRoot: string;
+  /**
+   * Host UI language code Pixelle's embedded Streamlit tab should render
+   * in (e.g. `zh_CN`, `en_US`). Forwarded via the `PIXELLE_LANGUAGE` env
+   * so the Pixelle i18n layer can mirror whatever language the yyvideoclaw
+   * shell is currently showing. Omit / leave empty to let Pixelle fall
+   * back to OS-level detection.
+   *
+   * When the host switches language at runtime, call
+   * {@link PixelleBackendSupervisor.updateHostLanguage} so a restart picks
+   * up the new value — env vars cannot be mutated on a live child process.
+   */
+  readonly hostLanguage?: string;
   /** Idle auto-stop threshold in minutes; `0` disables. Defaults to 30. */
   readonly autoStopIdleMinutes?: number;
   /** Health-check timeout override (defaults to 30_000 ms). */
@@ -117,6 +148,16 @@ export type SupervisorStartResult = {
   readonly port: number;
   readonly endpoint: string;
   readonly pid: number;
+  /**
+   * Alias of `port` (see `SupervisorStatus.running.streamlitPort`). Always
+   * non-null when the start succeeds for the venv flavour; `null` only when
+   * the legacy `binary` resolution ran (no Streamlit in that shape).
+   */
+  readonly streamlitPort: number | null;
+  /** `http://127.0.0.1:<port>` the browser iframes. */
+  readonly streamlitUrl: string | null;
+  /** Alias of `pid`. */
+  readonly streamlitPid: number | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -151,7 +192,47 @@ const DEFAULT_RETRY_SCHEDULE_MS: readonly number[] = [2_000, 5_000, 15_000];
 const DEFAULT_HEALTH_TIMEOUT_MS = 30_000;
 const HEALTH_POLL_INTERVAL_MS = 250;
 const GRACEFUL_SHUTDOWN_MS = 10_000;
-const DEFAULT_IDLE_STOP_MINUTES = 30;
+// 120 minutes of idleness before the supervisor recycles the Pixelle child
+// to free RAM. Tuned up from the original 30m because real users often
+// leave the Video Studio tab open in the background between generations
+// and the previous threshold was tripping on them regularly. Callers that
+// want a different ceiling can override via `autoStopIdleMinutes`; set to
+// `0` to disable entirely.
+const DEFAULT_IDLE_STOP_MINUTES = 120;
+
+/**
+ * Normalise a host-supplied UI language tag into the canonical forms
+ * Pixelle's i18n layer understands (`zh_CN`, `en_US`, …).
+ *
+ * We accept the loose variants the Control UI and `process.env.LANG`
+ * actually produce in the wild — BCP47 hyphens, POSIX `.UTF-8` suffixes,
+ * bare language subtags — and collapse them into the underscore form the
+ * Python side normalises against. Unknown or empty input returns "" so
+ * {@link PixelleBackendSupervisor.buildEnv} can skip the env var entirely
+ * and let Pixelle fall back to OS detection.
+ */
+function normaliseHostLanguage(raw: string | undefined): string {
+  if (!raw) return "";
+  // Strip `.UTF-8` / `@euro` style suffixes from POSIX locales.
+  const cleaned = raw.split(/[.@]/)[0]!.trim();
+  if (!cleaned) return "";
+  // BCP47 → POSIX underscore form (`zh-CN` → `zh_CN`).
+  const underscored = cleaned.replace(/-/g, "_");
+  const [lang, region] = underscored.split("_");
+  if (!lang) return "";
+  const lower = lang.toLowerCase();
+  if (lower === "zh") {
+    // Pixelle only ships zh_CN; collapse every Chinese variant onto it
+    // so Hans / Hant / HK / TW all at least get Chinese copy.
+    return "zh_CN";
+  }
+  if (lower === "en") {
+    return region ? `en_${region.toUpperCase()}` : "en_US";
+  }
+  // Fall through: preserve what the caller gave us, just in the canonical
+  // `xx_YY` casing Pixelle's lookup expects.
+  return region ? `${lower}_${region.toUpperCase()}` : lower;
+}
 
 export class PixelleBackendSupervisor {
   private readonly emitter = new EventEmitter();
@@ -167,6 +248,14 @@ export class PixelleBackendSupervisor {
   private retryTimer: { readonly cancel: () => void } | null = null;
   private idleTimer: { readonly cancel: () => void } | null = null;
   private lastActivityAt = 0;
+  /**
+   * Mutable snapshot of the host UI language forwarded to Pixelle via the
+   * `PIXELLE_LANGUAGE` env var. Lives outside {@link cfg} (which is
+   * readonly) so {@link updateHostLanguage} can swap it at runtime and the
+   * next child spawn picks the new value up without cfg copy-on-write
+   * gymnastics.
+   */
+  private currentHostLanguage: string;
 
   constructor(resolution: BackendResolution, cfg: SupervisorRuntimeConfig, deps: SupervisorDeps) {
     this.resolution = resolution;
@@ -177,6 +266,7 @@ export class PixelleBackendSupervisor {
       retryScheduleMs: cfg.retryScheduleMs ?? DEFAULT_RETRY_SCHEDULE_MS,
       autoStopIdleMinutes: cfg.autoStopIdleMinutes ?? DEFAULT_IDLE_STOP_MINUTES,
     };
+    this.currentHostLanguage = normaliseHostLanguage(cfg.hostLanguage);
   }
 
   // -------------------------------------------------------------------------
@@ -204,10 +294,14 @@ export class PixelleBackendSupervisor {
   async startIfNeeded(): Promise<SupervisorStartResult> {
     if (this.status.state === "running") {
       this.noteActivity();
+      const url = `http://127.0.0.1:${this.status.port}`;
       return {
         port: this.status.port,
-        endpoint: `http://127.0.0.1:${this.status.port}`,
+        endpoint: url,
         pid: this.status.pid,
+        streamlitPort: this.status.port,
+        streamlitUrl: url,
+        streamlitPid: this.status.pid,
       };
     }
     return this.startOnce(1);
@@ -218,15 +312,43 @@ export class PixelleBackendSupervisor {
     return this.startOnce(1);
   }
 
+  /**
+   * Update the host UI language hint forwarded to Pixelle.
+   *
+   * The embedded Pixelle tab mirrors the yyvideoclaw shell's language
+   * (`zh_CN`, `en_US`, ...). Because env vars cannot be mutated on a
+   * live child, a change while Pixelle is actively spawning or serving
+   * triggers a graceful restart so the next process boot reads the new
+   * `PIXELLE_LANGUAGE`. When the supervisor is `idle` / `stopped` /
+   * `retrying` we just stash the new value — the pending / future
+   * `startOnce()` will pick it up naturally.
+   *
+   * @returns `true` when the host language actually changed (so callers
+   *          can log / announce the restart), `false` when it was a
+   *          no-op (same normalised value, including both-empty).
+   */
+  async updateHostLanguage(nextLanguage: string | null | undefined): Promise<boolean> {
+    const normalised = normaliseHostLanguage(nextLanguage);
+    if (normalised === this.currentHostLanguage) return false;
+
+    this.currentHostLanguage = normalised;
+
+    // Only bounce the child when it is actually running or in the middle
+    // of coming up; for `idle` / `stopped` / `retrying` the new value
+    // naturally takes effect on the next `startOnce()`.
+    if (this.status.state === "running" || this.status.state === "starting") {
+      await this.restart();
+    }
+    return true;
+  }
+
   async stop(reason = "explicit stop"): Promise<void> {
     this.cancelTimers();
     const child = this.child;
-    if (!child) {
-      this.setStatus({ state: "stopped", reason });
-      return;
-    }
     this.child = null;
-    await this.gracefullyKill(child);
+
+    if (child) await this.gracefullyKill(child);
+
     this.setStatus({ state: "stopped", reason });
   }
 
@@ -242,9 +364,9 @@ export class PixelleBackendSupervisor {
     this.setStatus({ state: "starting", attempt });
 
     const port = await this.deps.allocatePort();
-    const { command, args } = this.buildLaunchSpec();
+    const { command, args, cwd } = this.buildLaunchSpec(port);
     const env = this.buildEnv(port);
-    const child = this.deps.spawn(command, args, { env });
+    const child = this.deps.spawn(command, args, { env, cwd });
     this.child = child;
     this.attachStdio(child);
     this.attachExitHandler(child, attempt);
@@ -262,44 +384,72 @@ export class PixelleBackendSupervisor {
     }
 
     const pid = child.pid ?? -1;
+    const url = `http://127.0.0.1:${port}`;
     this.setStatus({
       state: "running",
       pid,
       port,
       startedAt: new Date(this.deps.timers.now()),
       command: `${command} ${args.join(" ")}`.trim(),
+      // Alias fields: with Streamlit as the sole process, URL/port/pid are
+      // identical across `port` and `streamlitPort`. We keep the aliases so
+      // downstream code (wire serializer, `<video-studio-view>` iframe) can
+      // read `streamlitUrl` without branching on the resolution kind.
+      streamlitPid: pid,
+      streamlitPort: port,
+      streamlitUrl: url,
     });
     this.noteActivity();
-    return { port, endpoint: `http://127.0.0.1:${port}`, pid };
+    return {
+      port,
+      endpoint: url,
+      pid,
+      streamlitPort: port,
+      streamlitUrl: url,
+      streamlitPid: pid,
+    };
   }
 
-  private buildLaunchSpec(): { readonly command: string; readonly args: readonly string[] } {
+  private buildLaunchSpec(port: number): {
+    readonly command: string;
+    readonly args: readonly string[];
+    readonly cwd?: string;
+  } {
     if (this.resolution.kind === "binary") {
+      // Legacy single-file bundle (not currently produced by our packaging
+      // pipeline, but kept as a no-op path so a future static build can
+      // drop in without touching the supervisor).
       return { command: this.resolution.executable, args: [] };
     }
     if (this.resolution.kind === "venv") {
-      // The packaging shim (see scripts/video-studio/build-backend.mjs)
-      // exposes a tiny uvicorn launcher; for the venv fallback we call
-      // `python -m uvicorn api.app:app --host ... --port ...` which is
-      // wired through env vars below to avoid string-interpolation risk.
+      // Pixelle ships a pure Streamlit app; `web/app.py` imports are relative
+      // to the source checkout so we root cwd at `sourceRoot`. Binding to
+      // 127.0.0.1 + headless mode keeps Streamlit from auto-opening a
+      // browser tab inside the Electron shell.
       return {
         command: this.resolution.python,
         args: [
           "-m",
-          "uvicorn",
-          this.resolution.entryModule,
-          "--host",
+          "streamlit",
+          "run",
+          "web/app.py",
+          "--server.address",
           "127.0.0.1",
-          "--port",
-          "$PIXELLE_PORT",
+          "--server.port",
+          String(port),
+          "--server.headless",
+          "true",
+          "--browser.gatherUsageStats",
+          "false",
         ],
+        cwd: this.resolution.sourceRoot,
       };
     }
     throw new BackendNotInstalledError("no resolvable backend");
   }
 
   private buildEnv(port: number): NodeJS.ProcessEnv {
-    return {
+    const env: NodeJS.ProcessEnv = {
       ...process.env,
       PIXELLE_EMBEDDED_MODE: "1",
       PIXELLE_HOST: "127.0.0.1",
@@ -311,22 +461,32 @@ export class PixelleBackendSupervisor {
       PIXELLE_OPENCLAW_AGENT: this.cfg.agentId,
       PIXELLE_OPENCLAW_MODEL: this.cfg.defaultModel,
     };
+    // Only forward the language hint when we actually have one; an empty
+    // value would mask OS detection on the Pixelle side. Consumed by
+    // `web/i18n/__init__.py::_resolve_host_injected_language`.
+    if (this.currentHostLanguage) {
+      env.PIXELLE_LANGUAGE = this.currentHostLanguage;
+    }
+    return env;
   }
 
   private attachStdio(child: SupervisorChildProcess): void {
-    const sink = this.cfg.onLogLine ?? (() => {});
     const emit = (stream: "stdout" | "stderr", chunk: Buffer | string) => {
       const text = typeof chunk === "string" ? chunk : chunk.toString("utf8");
       for (const raw of text.split(/\r?\n/)) {
         const line = raw.trimEnd();
         if (line.length === 0) continue;
-        const payload: LogLine = { stream, line };
-        sink(payload);
-        this.emitter.emit("log", payload);
+        this.emitLog({ stream, line });
       }
     };
     child.stdout?.on("data", (chunk: Buffer | string) => emit("stdout", chunk));
     child.stderr?.on("data", (chunk: Buffer | string) => emit("stderr", chunk));
+  }
+
+  private emitLog(payload: LogLine): void {
+    const sink = this.cfg.onLogLine;
+    if (sink) sink(payload);
+    this.emitter.emit("log", payload);
   }
 
   private attachExitHandler(child: SupervisorChildProcess, attempt: number): void {
@@ -366,12 +526,20 @@ export class PixelleBackendSupervisor {
   }
 
   private async waitForHealth(port: number): Promise<void> {
+    // Streamlit exposes its own readiness probe at `/_stcore/health` which
+    // returns `ok` once the Tornado runtime is ready to serve; the legacy
+    // FastAPI `/health` endpoint does not exist upstream so we cannot use
+    // it. The binary resolution (future) is expected to expose the same
+    // path for consistency.
+    const healthPath = "/_stcore/health";
     const deadline = this.deps.timers.now() + this.cfg.healthTimeoutMs;
     while (this.deps.timers.now() < deadline) {
       const ac = new AbortController();
       const slice = this.deps.timers.setTimeout(() => ac.abort(), HEALTH_POLL_INTERVAL_MS * 2);
       try {
-        const res = await this.deps.fetch(`http://127.0.0.1:${port}/health`, { signal: ac.signal });
+        const res = await this.deps.fetch(`http://127.0.0.1:${port}${healthPath}`, {
+          signal: ac.signal,
+        });
         if (res.ok) return;
       } catch {
         // swallow — we keep polling until the deadline passes.
@@ -422,7 +590,11 @@ export class PixelleBackendSupervisor {
       const last = this.lastActivityAt;
       const elapsed = this.deps.timers.now() - last;
       if (elapsed + 1 >= ms && this.status.state === "running") {
-        void this.stop("idle auto-stop").catch(() => {
+        // Embed the tuned idle threshold in the reason so the Control UI
+        // can tell the user "I closed this because you were gone for N
+        // minutes" instead of the opaque `idle auto-stop`.
+        const minutes = this.cfg.autoStopIdleMinutes;
+        void this.stop(`idle auto-stop after ${minutes} min of inactivity`).catch(() => {
           // Already captured in status; nothing else to do here.
         });
       } else {

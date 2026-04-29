@@ -37,7 +37,9 @@ describe("computePhaseRows", () => {
 
 describe("resolveViewMode", () => {
   it("returns `disabled` when the feature flag is off (regardless of backend)", () => {
-    expect(resolveViewMode({ featureEnabled: false, backend: { kind: "ready" } })).toEqual({
+    expect(
+      resolveViewMode({ featureEnabled: false, backend: { kind: "ready", streamlitUrl: null } }),
+    ).toEqual({
       kind: "disabled",
     });
   });
@@ -46,14 +48,34 @@ describe("resolveViewMode", () => {
     expect(resolveViewMode({ featureEnabled: true, backend: { kind: "missing" } })).toEqual({
       kind: "not-installed",
     });
+    expect(resolveViewMode({ featureEnabled: true, backend: { kind: "idle" } })).toEqual({
+      kind: "idle",
+    });
     expect(resolveViewMode({ featureEnabled: true, backend: { kind: "starting" } })).toEqual({
       kind: "starting",
     });
     expect(
       resolveViewMode({ featureEnabled: true, backend: { kind: "error", reason: "boom" } }),
     ).toEqual({ kind: "error", reason: "boom" });
-    expect(resolveViewMode({ featureEnabled: true, backend: { kind: "ready" } })).toEqual({
+    // `ready` now carries the Streamlit loopback URL so the view can embed
+    // the upstream Pixelle UI directly in an iframe.
+    expect(
+      resolveViewMode({
+        featureEnabled: true,
+        backend: { kind: "ready", streamlitUrl: "http://127.0.0.1:57000" },
+      }),
+    ).toEqual({
       kind: "studio",
+      streamlitUrl: "http://127.0.0.1:57000",
+    });
+    expect(
+      resolveViewMode({
+        featureEnabled: true,
+        backend: { kind: "ready", streamlitUrl: null },
+      }),
+    ).toEqual({
+      kind: "studio",
+      streamlitUrl: null,
     });
   });
 });

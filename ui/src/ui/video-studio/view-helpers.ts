@@ -51,7 +51,8 @@ export function computePhaseRows(snap: TaskSnapshot | null): readonly PhaseRow[]
 // ---------------------------------------------------------------------------
 
 export type BackendState =
-  | { readonly kind: "ready" }
+  | { readonly kind: "ready"; readonly streamlitUrl: string | null }
+  | { readonly kind: "idle" }
   | { readonly kind: "missing" }
   | { readonly kind: "starting" }
   | { readonly kind: "error"; readonly reason: string };
@@ -59,9 +60,10 @@ export type BackendState =
 export type ViewMode =
   | { readonly kind: "disabled" }
   | { readonly kind: "not-installed" }
+  | { readonly kind: "idle" }
   | { readonly kind: "starting" }
   | { readonly kind: "error"; readonly reason: string }
-  | { readonly kind: "studio" };
+  | { readonly kind: "studio"; readonly streamlitUrl: string | null };
 
 export function resolveViewMode(input: {
   readonly featureEnabled: boolean;
@@ -71,13 +73,20 @@ export function resolveViewMode(input: {
   switch (input.backend.kind) {
     case "missing":
       return { kind: "not-installed" };
+    case "idle":
+      // Installed but no supervisor subprocess yet — let the user click
+      // Start explicitly instead of pretending we're already launching.
+      return { kind: "idle" };
     case "starting":
       return { kind: "starting" };
     case "error":
       return { kind: "error", reason: input.backend.reason };
     case "ready":
     default:
-      return { kind: "studio" };
+      return {
+        kind: "studio",
+        streamlitUrl: input.backend.kind === "ready" ? input.backend.streamlitUrl : null,
+      };
   }
 }
 

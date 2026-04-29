@@ -8,11 +8,14 @@
 //      `dist-runtime/video-studio/<platform>-<arch>/` (preferred) or a
 //      Python entry point inside a `uv`-managed virtualenv under
 //      `<userData>/video-studio/venv/` (fallback, auto-provisioned on
-//      first launch).
+//      first launch from the `vendor/pixelle-video` submodule).
 //   2. "What version is installed?" — read from the manifest next to the
 //      binary or `<userData>/video-studio/VERSION` for the fallback path.
 //   3. "Is it up to date?" — compared against the compatibility matrix the
 //      yyvideoclaw build itself ships.
+//   4. "Where does the source live?" — for the venv flavour the supervisor
+//      needs the pixelle source root (`web/app.py`'s parent directory) so
+//      it can launch the Streamlit UI alongside the FastAPI backend.
 //
 // The module is written as a side-effect-free class with all filesystem /
 // process operations injected so it can be unit-tested with in-memory
@@ -82,6 +85,15 @@ export type BackendResolution =
       readonly entryModule: string;
       readonly venvDir: string;
       readonly version: string;
+      /**
+       * Absolute path to the pixelle-video source checkout (the directory
+       * containing `pyproject.toml`, `web/app.py`, `api/app.py`). The
+       * supervisor uses this as the cwd when spawning Streamlit so the
+       * relative imports inside `web/app.py` resolve correctly.
+       *
+       * For the embedded layout this is always `<repoRoot>/vendor/pixelle-video`.
+       */
+      readonly sourceRoot: string;
     }
   | { readonly kind: "missing"; readonly reason: string };
 
@@ -154,12 +166,28 @@ export class VideoStudioInstaller {
    * directory. Called only when `resolve()` reports `missing` and the user
    * confirms the install wizard. Writes a `VERSION` file so future calls
    * short-circuit on version lookup.
+   *
+   * The install source is the `vendor/pixelle-video` git submodule inside
+   * the yyvideoclaw repo — pinned exactly so a given yyvideoclaw build
+   * always ships the pixelle code it was QA'd against. We install with
+   * `-e` (editable) so iterating on the submodule checkout does not
+   * require a re-run of `uv pip install` for non-dependency changes.
    */
-  install(opts: { readonly pixelleRequirement: string; readonly version: string }): void {
+  install(opts: { readonly version: string }): void {
     const { fs, path, spawnSync } = this.deps;
     const venvDir = this.venvDir();
     const parent = path.dirname(venvDir);
     fs.mkdirSync(parent, { recursive: true });
+
+    const sourceRoot = this.sourceRoot();
+    const pyproject = path.join(sourceRoot, "pyproject.toml");
+    if (!fs.existsSync(pyproject)) {
+      throw new Error(
+        `pixelle-video source not found at ${sourceRoot} (missing pyproject.toml). ` +
+          `Run \`git submodule update --init --recursive\` in ${this.cfg.repoRoot} ` +
+          `to populate the submodule.`,
+      );
+    }
 
     const uv = spawnSync("uv", ["venv", venvDir], { stdio: "inherit" });
     if (uv.status !== 0) {
@@ -167,13 +195,7 @@ export class VideoStudioInstaller {
     }
     const install = spawnSync(
       "uv",
-      [
-        "pip",
-        "install",
-        "--python",
-        pythonBin(venvDir, this.cfg.platform, path),
-        opts.pixelleRequirement,
-      ],
+      ["pip", "install", "--python", pythonBin(venvDir, this.cfg.platform, path), "-e", sourceRoot],
       { stdio: "inherit" },
     );
     if (install.status !== 0) {
@@ -245,11 +267,16 @@ export class VideoStudioInstaller {
       entryModule: "api.app:app",
       venvDir,
       version,
+      sourceRoot: this.sourceRoot(),
     };
   }
 
   private venvDir(): string {
     return this.deps.path.join(this.cfg.userDataRoot, "video-studio", "venv");
+  }
+
+  private sourceRoot(): string {
+    return this.deps.path.join(this.cfg.repoRoot, "vendor", "pixelle-video");
   }
 
   private versionFilePath(): string {

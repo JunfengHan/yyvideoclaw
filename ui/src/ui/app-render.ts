@@ -122,6 +122,7 @@ import {
   generateVideoTask,
   installVideoStudioBackend,
   mapStatusToBackendState,
+  restartVideoStudioBackend,
   startVideoStudioBackend,
   updateVideoStudioDraft,
 } from "./controllers/video-studio.ts";
@@ -2476,6 +2477,15 @@ export function renderApp(state: AppViewState) {
                 },
                 onInstall: () => {
                   void installVideoStudioBackend(state).then(() => requestHostUpdate());
+                },
+                onStart: () => {
+                  void startVideoStudioBackend(state).then(() => requestHostUpdate());
+                },
+                onRestart: () => {
+                  // Triggered from the error/idle-auto-stop card; goes
+                  // through the dedicated /video-studio/restart route so
+                  // we get fresh supervisor state + endpoint in one hop.
+                  void restartVideoStudioBackend(state).then(() => requestHostUpdate());
                 },
                 onOpenLogs: () => {
                   // Route to the Logs tab; the source=video-studio filter is

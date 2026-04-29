@@ -15,6 +15,7 @@
 //        POST /video-studio/install         → provision the Pixelle venv
 //        POST /video-studio/start           → spawn the Pixelle subprocess
 //        POST /video-studio/stop            → graceful shutdown
+//        POST /video-studio/restart         → stop + spawn a fresh child
 //        GET  /video-studio/preflight       → ffmpeg / playwright probes
 //        POST /video-studio/proxy/*         → authenticated passthrough to
 //                                            the Pixelle loopback backend so
@@ -56,12 +57,42 @@ type RuntimeState = {
 const RUNTIME_SYMBOL = Symbol.for("openclaw.video-studio.runtime");
 type GlobalWithRuntime = typeof globalThis & { [RUNTIME_SYMBOL]?: RuntimeState };
 
+/**
+ * Resolve the yyvideoclaw repo root by walking up from the current file
+ * until we find an ancestor that contains `vendor/pixelle-video/pyproject.toml`.
+ *
+ * This is robust against both:
+ *   - source layout:  <repoRoot>/extensions/video-studio/index.ts
+ *   - compiled layout: <repoRoot>/dist/extensions/video-studio/index.js
+ *
+ * We explicitly avoid a hard-coded "../.." because the number of levels
+ * differs between the two layouts and `new URL("../..", import.meta.url)`
+ * silently resolves to `<repoRoot>/dist` at runtime (dropping vendor/).
+ */
+function resolveRepoRoot(): string {
+  const startDir = path.dirname(new URL(import.meta.url).pathname);
+  let dir = startDir;
+  // Safety bound: stop at filesystem root (`path.dirname("/") === "/"`).
+  for (let i = 0; i < 12; i++) {
+    const candidate = path.join(dir, "vendor", "pixelle-video", "pyproject.toml");
+    if (existsSync(candidate)) {
+      return dir;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  // Fall back to the legacy two-level-up guess so the error thrown later
+  // in installer.install() still surfaces a readable path.
+  return path.resolve(startDir, "..", "..");
+}
+
 function getRuntime(): RuntimeState {
   const g = globalThis as GlobalWithRuntime;
   if (g[RUNTIME_SYMBOL]) {
     return g[RUNTIME_SYMBOL]!;
   }
-  const repoRoot = path.resolve(new URL("../..", import.meta.url).pathname);
+  const repoRoot = resolveRepoRoot();
   const userDataRoot = path.join(homedir(), ".openclaw");
   const installer = new VideoStudioInstaller(
     { repoRoot, userDataRoot, platform: detectPlatformTag() },
@@ -112,6 +143,25 @@ function detectPlatformTag():
   return `${p}-${a}` as ReturnType<typeof detectPlatformTag>;
 }
 
+/**
+ * Parse `OPENCLAW_VIDEO_STUDIO_IDLE_MINUTES` into a positive integer minute
+ * count, a literal `0` (disables auto-stop entirely), or `undefined` when
+ * the value is missing or malformed. Undefined lets the supervisor apply
+ * its own default (120 minutes as of the 2026-04 tune).
+ *
+ * We deliberately tolerate negative / NaN input by returning `undefined`
+ * instead of throwing, so a typo in an env file never crashes the gateway
+ * on boot.
+ */
+function parseIdleStopMinutesEnv(raw: string | undefined): number | undefined {
+  if (raw === undefined) return undefined;
+  const trimmed = raw.trim();
+  if (trimmed === "") return undefined;
+  const n = Number(trimmed);
+  if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) return undefined;
+  return n;
+}
+
 // ---------------------------------------------------------------------------
 // Supervisor helpers.
 // ---------------------------------------------------------------------------
@@ -148,6 +198,20 @@ function ensureSupervisor(state: RuntimeState): PixelleBackendSupervisor {
       agentId: "openclaw/llm-passthrough",
       defaultModel: process.env.OPENCLAW_VIDEO_STUDIO_DEFAULT_MODEL ?? "qwen/qwen3.5-plus",
       dataRoot: path.join(homedir(), ".openclaw", "video-studio"),
+      // Idle auto-stop threshold (in minutes). Pulled from env so ops can
+      // extend or disable the behaviour without touching code. Anything
+      // that fails to parse as a non-negative integer falls through to
+      // the supervisor's own default (120 min as of the 2026-04 tune).
+      autoStopIdleMinutes: parseIdleStopMinutesEnv(process.env.OPENCLAW_VIDEO_STUDIO_IDLE_MINUTES),
+      // Boot-time language hint. The Control UI is expected to POST
+      // /video-studio/host-language whenever the shell language toggles;
+      // this env-var path is just the cold-start seed so the first spawn
+      // already matches the OS (or whatever the launcher pre-populated).
+      hostLanguage:
+        process.env.OPENCLAW_UI_LANGUAGE ??
+        process.env.OPENCLAW_VIDEO_STUDIO_HOST_LANGUAGE ??
+        process.env.LANG ??
+        undefined,
       onLogLine: (line: LogLine) => {
         state.recentLogs.push(line);
         if (state.recentLogs.length > 200) {
@@ -211,6 +275,9 @@ function asStatusWireShape(s: SupervisorStatus) {
         pid: s.pid,
         port: s.port,
         startedAt: s.startedAt.toISOString(),
+        streamlitPort: s.streamlitPort,
+        streamlitUrl: s.streamlitUrl,
+        streamlitPid: s.streamlitPid,
       };
     case "starting":
       return { kind: "starting" as const, attempt: s.attempt };
@@ -236,6 +303,11 @@ function mapSupervisorStatusToBackendState(s: SupervisorStatus) {
   //   "not-installed" in the view; here we only report supervisor-level
   //   states.
   // - "retrying" / "stopped" collapse to "error" for the view's card layout.
+  // - "idle" means "installed but nothing is running yet" — the view
+  //   surfaces this as a dedicated "ready to start" card so the user can
+  //   explicitly launch the backend; previously this was coerced into
+  //   "starting" which caused the UI to spin forever when no spawn was
+  //   ever attempted.
   switch (s.state) {
     case "running":
       return { kind: "ready" as const };
@@ -247,7 +319,7 @@ function mapSupervisorStatusToBackendState(s: SupervisorStatus) {
       return { kind: "error" as const, reason: s.reason };
     case "idle":
     default:
-      return { kind: "starting" as const };
+      return { kind: "idle" as const };
   }
 }
 
@@ -281,16 +353,12 @@ async function handleInstall(req: IncomingMessage, res: ServerResponse): Promise
   }
   const state = getRuntime();
   try {
-    // Pin to the sibling yy-Pixelle-Video source checkout when available so
-    // developers get a predictable, reproducible install without waiting for
-    // a PyPI publish.
-    const pixelleSrc = path.resolve(
-      new URL("../..", import.meta.url).pathname,
-      "..",
-      "yy-Pixelle-Video",
-    );
-    const requirement = existsSync(pixelleSrc) ? `-e ${pixelleSrc}` : "pixelle-video";
-    state.installer.install({ pixelleRequirement: requirement, version: "local" });
+    // The pixelle source is pinned as a git submodule at
+    // `<repoRoot>/vendor/pixelle-video` so the installer has everything it
+    // needs to `uv pip install -e` directly. A missing submodule is
+    // reported inside `installer.install()` with a hint to run
+    // `git submodule update --init --recursive`.
+    state.installer.install({ version: "local" });
     return json(res, 200, { ok: true });
   } catch (err) {
     return json(res, 500, {
@@ -317,6 +385,9 @@ async function handleStart(req: IncomingMessage, res: ServerResponse): Promise<b
       endpoint: state.latestStart.endpoint,
       pid: state.latestStart.pid,
       port: state.latestStart.port,
+      streamlitUrl: state.latestStart.streamlitUrl,
+      streamlitPort: state.latestStart.streamlitPort,
+      streamlitPid: state.latestStart.streamlitPid,
     });
   } catch (err) {
     return json(res, 500, {
@@ -346,6 +417,54 @@ async function handleStop(req: IncomingMessage, res: ServerResponse): Promise<bo
   }
 }
 
+/**
+ * POST /video-studio/restart
+ *
+ * User-visible "restart backend" verb. Two scenarios drive it:
+ *   1. The supervisor auto-stopped after a long idle window and the user
+ *      wants it back without hunting for the start button.
+ *   2. The child crashed past the retry budget and landed in a terminal
+ *      `stopped` state; a manual restart clears that and respawns.
+ *
+ * Behaviour:
+ *   - If the supervisor has never been instantiated (cold process), we
+ *     fall through to a plain `startIfNeeded()` — identical to /start.
+ *   - If it exists, call `restart()` which stops (if needed) then spawns
+ *     a fresh child. The new endpoint is exposed through `state.latestStart`
+ *     exactly like /start does so the iframe can re-embed seamlessly.
+ */
+async function handleRestart(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
+  if (req.method !== "POST") {
+    return json(res, 405, { error: "method_not_allowed" });
+  }
+  const state = getRuntime();
+  const resolution = state.installer.resolve();
+  if (resolution.kind === "missing") {
+    return json(res, 409, { error: "not_installed", reason: resolution.reason });
+  }
+  try {
+    const supervisor = ensureSupervisor(state);
+    // `restart()` is safe to call even when the supervisor is already
+    // `stopped` / `idle` — the inner `stop()` short-circuits when there
+    // is no live child and the subsequent `startOnce()` runs regardless.
+    state.latestStart = await supervisor.restart();
+    return json(res, 200, {
+      ok: true,
+      endpoint: state.latestStart.endpoint,
+      pid: state.latestStart.pid,
+      port: state.latestStart.port,
+      streamlitUrl: state.latestStart.streamlitUrl,
+      streamlitPort: state.latestStart.streamlitPort,
+      streamlitPid: state.latestStart.streamlitPid,
+    });
+  } catch (err) {
+    return json(res, 500, {
+      error: "restart_failed",
+      detail: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 async function handlePreflight(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
   void req;
   try {
@@ -356,6 +475,83 @@ async function handlePreflight(req: IncomingMessage, res: ServerResponse): Promi
   } catch (err) {
     return json(res, 500, {
       error: "preflight_failed",
+      detail: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+/**
+ * POST /video-studio/host-language
+ *
+ * The Control UI calls this whenever the user flips the yyvideoclaw shell
+ * language. Body shape:
+ *
+ *     { "language": "zh_CN" | "en_US" | ... }
+ *
+ * Passed straight to {@link PixelleBackendSupervisor.updateHostLanguage};
+ * a running backend is respawned with the new `PIXELLE_LANGUAGE` env so
+ * the embedded Streamlit tab re-renders to match the host UI. No-op when
+ * the supervisor hasn't been instantiated yet — the value is picked up
+ * on the next `/start`.
+ */
+async function handleHostLanguage(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
+  if (req.method !== "POST") {
+    return json(res, 405, { error: "method_not_allowed" });
+  }
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    chunks.push(chunk as Buffer);
+  }
+  let language: string | undefined;
+  if (chunks.length > 0) {
+    try {
+      const parsed = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
+        language?: unknown;
+      };
+      if (typeof parsed.language === "string") {
+        language = parsed.language;
+      }
+    } catch (err) {
+      return json(res, 400, {
+        error: "invalid_body",
+        detail: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  const state = getRuntime();
+  // Mirror the new language onto the process env so subsequent cold
+  // starts (e.g. after a crash + manual /start) still see it even if the
+  // caller hasn't re-POSTed.
+  if (language) {
+    process.env.OPENCLAW_UI_LANGUAGE = language;
+  }
+  if (!state.supervisor) {
+    return json(res, 200, { ok: true, restarted: false, note: "supervisor not started" });
+  }
+  try {
+    const restarted = await state.supervisor.updateHostLanguage(language);
+    if (restarted) {
+      // `updateHostLanguage` returns a bare boolean so we fabricate the
+      // post-restart `SupervisorStartResult` from the live status; this
+      // is the same shape /start would have emitted, minus the race of
+      // calling startIfNeeded() a second time.
+      const status = state.supervisor.getStatus();
+      if (status.state === "running") {
+        const endpoint = `http://127.0.0.1:${status.port}`;
+        state.latestStart = {
+          port: status.port,
+          endpoint,
+          pid: status.pid,
+          streamlitPort: status.streamlitPort ?? status.port,
+          streamlitUrl: status.streamlitUrl ?? endpoint,
+          streamlitPid: status.streamlitPid ?? status.pid,
+        };
+      }
+    }
+    return json(res, 200, { ok: true, restarted });
+  } catch (err) {
+    return json(res, 500, {
+      error: "host_language_update_failed",
       detail: err instanceof Error ? err.message : String(err),
     });
   }
@@ -441,10 +637,22 @@ export default definePluginEntry({
       handler: handleStop,
     });
     api.registerHttpRoute({
+      path: "/video-studio/restart",
+      match: "exact",
+      auth: "gateway",
+      handler: handleRestart,
+    });
+    api.registerHttpRoute({
       path: "/video-studio/preflight",
       match: "exact",
       auth: "gateway",
       handler: handlePreflight,
+    });
+    api.registerHttpRoute({
+      path: "/video-studio/host-language",
+      match: "exact",
+      auth: "gateway",
+      handler: handleHostLanguage,
     });
     api.registerHttpRoute({
       path: "/video-studio/proxy",

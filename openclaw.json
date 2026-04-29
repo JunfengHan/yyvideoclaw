@@ -16,6 +16,13 @@
     },
     "port": 18789,
     "bind": "loopback",
+    "http": {
+      "endpoints": {
+        "chatCompletions": {
+          "enabled": true
+        }
+      }
+    },
     "tailscale": {
       "mode": "off",
       "resetOnExit": false

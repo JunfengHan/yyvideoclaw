@@ -52,6 +52,8 @@ export type VideoStudioViewCallbacks = {
   readonly onRegenerate: () => void;
   readonly onSelectHistory: (taskId: string) => void;
   readonly onInstall: () => void;
+  readonly onStart: () => void;
+  readonly onRestart: () => void;
   readonly onOpenLogs: () => void;
   readonly onDownload: (task: TaskSnapshot) => void;
   readonly onCopyLink: (task: TaskSnapshot) => void;
@@ -100,11 +102,22 @@ export function renderVideoStudioView(
       return renderDisabledCard();
     case "not-installed":
       return renderNotInstalledCard(full.callbacks.onInstall);
+    case "idle":
+      return renderIdleCard(full.callbacks.onStart);
     case "starting":
       return renderStartingCard();
     case "error":
-      return renderErrorCard(mode.reason, full.callbacks.onOpenLogs);
+      return renderErrorCard(mode.reason, full.callbacks.onOpenLogs, full.callbacks.onRestart);
     case "studio":
+      // MVP: embed Pixelle's native Streamlit UI directly as a full-bleed
+      // iframe. When `streamlitUrl` is present we hand rendering entirely
+      // over to the upstream app; the bespoke topic/pipeline/generate/
+      // history layout below is kept as a fallback for transitional states
+      // where the URL is still missing (e.g. legacy binary resolution, or
+      // a restart window where supervisor.running hasn't landed yet).
+      if (mode.streamlitUrl) {
+        return renderStreamlitFrame(mode.streamlitUrl);
+      }
       return renderStudio(full);
     default:
       return nothing;
@@ -173,22 +186,103 @@ function renderNotInstalledCard(onInstall: () => void): TemplateResult {
   `);
 }
 
-function renderErrorCard(reason: string, onOpenLogs: () => void): TemplateResult {
+// Rendered when the backend is installed but no supervisor subprocess is
+// running yet (supervisor status === "idle"). We deliberately require an
+// explicit user click instead of auto-starting so a page load doesn't spawn
+// a potentially heavyweight Python process in the background.
+function renderIdleCard(onStart: () => void): TemplateResult {
   return card(html`
     <div
-      style="border:1px solid var(--danger,#d94c4c);border-radius:8px;padding:1rem;display:flex;flex-direction:column;gap:0.5rem;"
+      style="border:1px dashed var(--border,rgba(128,128,128,0.5));border-radius:8px;padding:1rem;display:flex;align-items:center;gap:1rem;"
     >
-      <strong style="color:var(--danger,#d94c4c);">${t("videoStudio.state.backendError")}</strong>
-      <code style="opacity:0.8;word-break:break-word;">${reason}</code>
+      <span style="flex:1;">${t("videoStudio.state.idle")}</span>
       <button
         type="button"
-        @click=${onOpenLogs}
-        style="align-self:flex-start;padding:0.4rem 0.8rem;border-radius:6px;border:1px solid var(--border,rgba(128,128,128,0.5));background:transparent;color:var(--text);cursor:pointer;"
+        @click=${onStart}
+        style="padding:0.5rem 1rem;border-radius:6px;border:1px solid var(--border,rgba(128,128,128,0.5));background:var(--accent,#3a7afe);color:#fff;cursor:pointer;"
       >
-        ${t("videoStudio.state.viewLogs")}
+        ${t("videoStudio.state.start")}
       </button>
     </div>
   `);
+}
+
+function renderErrorCard(
+  reason: string,
+  onOpenLogs: () => void,
+  onRestart: () => void,
+): TemplateResult {
+  // An idle-driven auto-stop is not really an "error" — it's the expected
+  // outcome of the 120-minute inactivity sweeper. Detect that reason
+  // shape and switch to a softer "paused, tap to resume" presentation
+  // while still reusing the same DOM skeleton (so themed spacing + icon
+  // alignment stay consistent across states).
+  const isIdleAutoStop = reason.toLowerCase().includes("idle auto-stop");
+  const headingKey = isIdleAutoStop
+    ? "videoStudio.state.idleAutoStopped"
+    : "videoStudio.state.backendError";
+  const borderColor = isIdleAutoStop
+    ? "var(--border,rgba(128,128,128,0.5))"
+    : "var(--danger,#d94c4c)";
+  const headingColor = isIdleAutoStop ? "var(--text)" : "var(--danger,#d94c4c)";
+  return card(html`
+    <div
+      style="border:1px solid ${borderColor};border-radius:8px;padding:1rem;display:flex;flex-direction:column;gap:0.5rem;"
+    >
+      <strong style="color:${headingColor};">${t(headingKey)}</strong>
+      <code style="opacity:0.8;word-break:break-word;">${reason}</code>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <button
+          type="button"
+          @click=${onRestart}
+          style="padding:0.4rem 0.8rem;border-radius:6px;border:1px solid var(--accent,#3a7afe);background:var(--accent,#3a7afe);color:#fff;cursor:pointer;"
+        >
+          ${t("videoStudio.state.restart")}
+        </button>
+        <button
+          type="button"
+          @click=${onOpenLogs}
+          style="padding:0.4rem 0.8rem;border-radius:6px;border:1px solid var(--border,rgba(128,128,128,0.5));background:transparent;color:var(--text);cursor:pointer;"
+        >
+          ${t("videoStudio.state.viewLogs")}
+        </button>
+      </div>
+    </div>
+  `);
+}
+
+// ---------------------------------------------------------------------------
+// Streamlit iframe embed.
+//
+// Pixelle ships its UI as a Streamlit app (see vendor/pixelle-video/web/app.py).
+// Rather than rebuilding that whole surface inside `<video-studio-view>`, we
+// point the user's browser at the loopback Streamlit server and let the
+// upstream UI render natively. The iframe covers the full tab viewport so
+// the experience visually matches a first-class yyvideoclaw tab.
+//
+// Security notes:
+//   - `src` is a 127.0.0.1 URL issued by our own supervisor, so it shares
+//     the user's local trust boundary.
+//   - We drop `allow-top-navigation` from the sandbox to keep stray window
+//     redirects inside the frame; everything else Streamlit actually needs
+//     (scripts, same-origin XHR back to 127.0.0.1, forms, clipboard for
+//     copy-link) is whitelisted.
+function renderStreamlitFrame(streamlitUrl: string): TemplateResult {
+  return html`
+    <section
+      class="video-studio-view video-studio-view--iframe"
+      aria-label=${t("tabs.videoStudio")}
+      style="display:flex;flex-direction:column;height:100%;min-height:100%;background:var(--bg);"
+    >
+      <iframe
+        title=${t("tabs.videoStudio")}
+        src=${streamlitUrl}
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
+        allow="clipboard-read; clipboard-write"
+        style="flex:1;width:100%;height:100%;border:0;background:var(--bg);"
+      ></iframe>
+    </section>
+  `;
 }
 
 // ---------------------------------------------------------------------------

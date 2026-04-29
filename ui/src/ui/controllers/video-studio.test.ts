@@ -38,9 +38,9 @@ describe("mapStatusToBackendState", () => {
     expect(mapStatusToBackendState(snap, false, null)).toEqual({ kind: "missing" });
   });
 
-  it("passes `ready` / `starting` / `error` through unchanged", () => {
-    expect(mapStatusToBackendState(statusWith({ kind: "ready" }), false, null)).toEqual({
-      kind: "ready",
+  it("passes `idle` / `starting` / `error` through unchanged", () => {
+    expect(mapStatusToBackendState(statusWith({ kind: "idle" }), false, null)).toEqual({
+      kind: "idle",
     });
     expect(mapStatusToBackendState(statusWith({ kind: "starting" }), false, null)).toEqual({
       kind: "starting",
@@ -48,6 +48,41 @@ describe("mapStatusToBackendState", () => {
     expect(
       mapStatusToBackendState(statusWith({ kind: "error", reason: "crashed" }), false, null),
     ).toEqual({ kind: "error", reason: "crashed" });
+  });
+
+  it("attaches the Streamlit loopback URL from the supervisor snapshot on `ready`", () => {
+    // When the backend reports ready AND the supervisor is running, the
+    // controller hands `<video-studio-view>` the streamlit URL sourced from
+    // the running-state fields so the iframe can point at the right port.
+    const snap: VideoStudioStatusPayload = {
+      resolution: { kind: "venv", version: "test" },
+      supervisor: {
+        kind: "running",
+        pid: 1234,
+        port: 57000,
+        startedAt: "2025-01-01T00:00:00.000Z",
+        streamlitPort: 57000,
+        streamlitUrl: "http://127.0.0.1:57000",
+        streamlitPid: 1234,
+      },
+      backend: { kind: "ready" },
+      endpoint: "http://127.0.0.1:57000",
+      recentLogTail: [],
+    };
+    expect(mapStatusToBackendState(snap, false, null)).toEqual({
+      kind: "ready",
+      streamlitUrl: "http://127.0.0.1:57000",
+    });
+  });
+
+  it("leaves streamlitUrl null when backend is `ready` but supervisor is not yet `running`", () => {
+    // Defensive: if for any reason we see a stale backend=ready + supervisor
+    // in a non-running state (e.g. between a crash and a respawn), fall back
+    // to `null` rather than dereferencing a missing field.
+    expect(mapStatusToBackendState(statusWith({ kind: "ready" }), false, null)).toEqual({
+      kind: "ready",
+      streamlitUrl: null,
+    });
   });
 });
 

@@ -27,6 +27,7 @@ import type {
 
 export type VideoStudioBackendWire =
   | { readonly kind: "ready" }
+  | { readonly kind: "idle" }
   | { readonly kind: "missing"; readonly reason: string }
   | { readonly kind: "starting" }
   | { readonly kind: "error"; readonly reason: string };
@@ -39,6 +40,9 @@ export type VideoStudioSupervisorStatusWire =
       readonly pid: number;
       readonly port: number;
       readonly startedAt: string;
+      readonly streamlitPort: number | null;
+      readonly streamlitUrl: string | null;
+      readonly streamlitPid: number | null;
     }
   | {
       readonly kind: "retrying";
@@ -78,7 +82,7 @@ export type VideoStudioControllerState = {
   videoStudioError: string | null;
   /** Track the last explicit user-initiated action so the UI can disable
    *  buttons without over-disabling the whole panel. */
-  videoStudioActionInFlight: "install" | "start" | "stop" | "generate" | null;
+  videoStudioActionInFlight: "install" | "start" | "stop" | "restart" | "generate" | null;
   /** Polling timer handle (`window.setInterval` result). `null` while
    *  polling is paused (e.g. user navigated away from the tab). */
   videoStudioPollTimer: number | null;
@@ -194,7 +198,6 @@ export async function loadVideoStudioStatusState(
   }
   state.videoStudioLoading = true;
   state.videoStudioError = null;
-  const wasReady = state.videoStudioStatus?.backend.kind === "ready";
   try {
     state.videoStudioStatus = await loadVideoStudioStatus(state);
   } catch (err) {
@@ -202,12 +205,13 @@ export async function loadVideoStudioStatusState(
   } finally {
     state.videoStudioLoading = false;
   }
-  // Backend just transitioned to ready — prime the template catalog so the
-  // Topic section's dropdown isn't empty when the user lands on the tab.
-  const isReady = state.videoStudioStatus?.backend.kind === "ready";
-  if (!wasReady && isReady && state.videoStudioTemplates.length === 0) {
-    void loadFrameTemplates(state);
-  }
+  // Note: we deliberately no longer auto-call `loadFrameTemplates` when the
+  // backend transitions to `ready`. The new embedded Streamlit UI renders
+  // its own template picker, so pre-fetching via the legacy FastAPI
+  // `/api/frame/templates` proxy route would only surface a 404 (the route
+  // no longer exists upstream) and pollute `videoStudioError`, dragging the
+  // view into its error card. Callers that still need the template catalog
+  // can opt-in by calling `loadFrameTemplates` directly.
 }
 
 // ---------------------------------------------------------------------------
@@ -219,7 +223,7 @@ export async function loadVideoStudioStatusState(
 
 async function performAction(
   state: VideoStudioControllerState & VideoStudioHttpDeps,
-  action: "install" | "start" | "stop",
+  action: "install" | "start" | "stop" | "restart",
   subpath: `/video-studio/${string}`,
 ): Promise<void> {
   if (state.videoStudioActionInFlight) {
@@ -255,6 +259,18 @@ export async function stopVideoStudioBackend(
   state: VideoStudioControllerState & VideoStudioHttpDeps,
 ): Promise<void> {
   await performAction(state, "stop", "/video-studio/stop");
+}
+
+/**
+ * Ask the runtime plugin to restart the Pixelle backend. Useful after the
+ * supervisor has auto-stopped on idle or landed in a terminal `stopped`
+ * state following exhausted crash retries — the user gets one button to
+ * bring the child back without hunting for Stop + Start.
+ */
+export async function restartVideoStudioBackend(
+  state: VideoStudioControllerState & VideoStudioHttpDeps,
+): Promise<void> {
+  await performAction(state, "restart", "/video-studio/restart");
 }
 
 // ---------------------------------------------------------------------------
@@ -449,7 +465,8 @@ export function stopTaskPolling(state: VideoStudioControllerState): void {
 // ---------------------------------------------------------------------------
 
 export type BackendStateForView =
-  | { readonly kind: "ready" }
+  | { readonly kind: "ready"; readonly streamlitUrl: string | null }
+  | { readonly kind: "idle" }
   | { readonly kind: "missing" }
   | { readonly kind: "starting" }
   | { readonly kind: "error"; readonly reason: string };
@@ -468,6 +485,17 @@ export function mapStatusToBackendState(
   if (snapshot.backend.kind === "missing") {
     return { kind: "missing" };
   }
+  // When the supervisor reports `ready`, surface the Streamlit loopback URL
+  // so `<video-studio-view>` can embed it directly in an iframe. The URL is
+  // sourced from the running supervisor status (not the top-level `endpoint`
+  // field, which is a legacy alias) so the view stays in sync with the
+  // actual child process port even across restarts.
+  if (snapshot.backend.kind === "ready") {
+    const sup = snapshot.supervisor;
+    const streamlitUrl = sup.kind === "running" ? (sup.streamlitUrl ?? null) : null;
+    return { kind: "ready", streamlitUrl };
+  }
+  // `idle`, `starting`, `error` pass through unchanged.
   return snapshot.backend;
 }
 

@@ -236,8 +236,12 @@ export const zh_CN: TranslationMap = {
     state: {
       notInstalled: "视频工作室后端尚未安装。",
       install: "安装视频工作室",
+      idle: "视频工作室后端已安装，尚未启动。",
+      start: "启动视频工作室",
       starting: "正在启动视频工作室后端…",
       backendError: "视频后端启动失败。",
+      idleAutoStopped: "长时间未使用，视频后端已自动暂停。",
+      restart: "重启后端",
       viewLogs: "查看日志",
       featureDisabled: "当前构建未启用视频工作室。",
     },

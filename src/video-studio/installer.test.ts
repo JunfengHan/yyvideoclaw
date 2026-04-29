@@ -153,6 +153,8 @@ describe("VideoStudioInstaller.resolve", () => {
     expect(resolution.kind).toBe("venv");
     expect(resolution.python).toBe("/home/u/video-studio/venv/bin/python");
     expect(resolution.version).toBe("0.9.0");
+    // Supervisor needs the source checkout to spawn Streamlit alongside FastAPI.
+    expect(resolution.sourceRoot).toBe("/repo/vendor/pixelle-video");
   });
 
   it("reports `missing` when neither install flavour is present", () => {
@@ -187,8 +189,11 @@ describe("VideoStudioInstaller.resolve", () => {
 });
 
 describe("VideoStudioInstaller.install", () => {
-  it("runs `uv venv` then `uv pip install` and persists the VERSION file", () => {
+  it("runs `uv venv` then `uv pip install -e <submodule>` and persists the VERSION file", () => {
     const fs = makeFakeFs();
+    // The installer now refuses to proceed unless the submodule checkout is
+    // present; seed the pyproject.toml marker file so the check passes.
+    fs.seedFile("/repo/vendor/pixelle-video/pyproject.toml", '[project]\nname="pixelle-video"\n');
     const spawnSync = vi.fn().mockReturnValue({
       status: 0,
       stdout: Buffer.from(""),
@@ -207,7 +212,7 @@ describe("VideoStudioInstaller.install", () => {
       makeDeps(fs, spawnSync),
     );
 
-    installer.install({ pixelleRequirement: "pixelle-video==1.2.3", version: "1.2.3" });
+    installer.install({ version: "1.2.3" });
 
     expect(spawnSync).toHaveBeenCalledTimes(2);
     const [firstCall, secondCall] = spawnSync.mock.calls;
@@ -219,13 +224,31 @@ describe("VideoStudioInstaller.install", () => {
       "install",
       "--python",
       "/home/u/video-studio/venv/bin/python",
-      "pixelle-video==1.2.3",
+      "-e",
+      "/repo/vendor/pixelle-video",
     ]);
     expect(fs.files.get("/home/u/video-studio/VERSION")).toBe("1.2.3\n");
   });
 
+  it("fails fast with a helpful hint when the submodule has not been initialised", () => {
+    const fs = makeFakeFs();
+    // Intentionally do NOT seed pyproject.toml — simulates a fresh clone
+    // without `git submodule update --init`.
+    const installer = new VideoStudioInstaller(
+      {
+        repoRoot: "/repo",
+        userDataRoot: "/home/u",
+        platform: PLATFORM,
+        runtimeRoot: "/repo/dist-runtime/video-studio",
+      },
+      makeDeps(fs),
+    );
+    expect(() => installer.install({ version: "x" })).toThrow(/submodule update --init/);
+  });
+
   it("surfaces a clear error when `uv venv` fails", () => {
     const fs = makeFakeFs();
+    fs.seedFile("/repo/vendor/pixelle-video/pyproject.toml", "[project]\n");
     const spawnSync = vi.fn().mockReturnValue({
       status: 7,
       stdout: Buffer.from(""),
@@ -243,9 +266,7 @@ describe("VideoStudioInstaller.install", () => {
       },
       makeDeps(fs, spawnSync),
     );
-    expect(() => installer.install({ pixelleRequirement: "pixelle-video", version: "x" })).toThrow(
-      /uv venv failed/,
-    );
+    expect(() => installer.install({ version: "x" })).toThrow(/uv venv failed/);
   });
 });
 
