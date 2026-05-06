@@ -5,6 +5,7 @@ import { loadLogs } from "./controllers/logs.ts";
 import type { NodesState } from "./controllers/nodes.ts";
 import { loadNodes } from "./controllers/nodes.ts";
 import {
+  ensureHostLanguageSync,
   loadVideoStudioStatusState,
   type VideoStudioControllerState,
   type VideoStudioHttpDeps,
@@ -82,12 +83,22 @@ export function startVideoStudioPolling(
   if (host.videoStudioPollTimer != null) {
     return;
   }
+  // Mirror the current host UI locale to the embedded Pixelle backend so
+  // its language picker boots aligned with the shell instead of falling
+  // back to its default `en_US`. Also subscribes to host-language changes
+  // so subsequent toggles propagate without a tab switch.
+  ensureHostLanguageSync(host);
   // Immediate fetch so the view doesn't wait 3s on first open.
   void loadVideoStudioStatusState(host);
   host.videoStudioPollTimer = window.setInterval(() => {
     if (host.tab !== "videoStudio") {
       return;
     }
+    // Re-check on every tick so a deps change (auth refresh) or a
+    // first-time-arrival-after-HMR still gets a chance to push the
+    // host locale through. ensureHostLanguageSync is idempotent and
+    // dedupes internally, so no duplicate POSTs.
+    ensureHostLanguageSync(host);
     void loadVideoStudioStatusState(host);
   }, 3000);
 }

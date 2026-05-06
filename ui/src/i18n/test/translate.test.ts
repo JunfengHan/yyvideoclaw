@@ -50,6 +50,12 @@ describe("i18n", () => {
     expect(translate.t("overview.stats.cronNext", { time: "10:00" })).toBe("Next wake 10:00");
   });
 
+  it("should replace empty string parameters", () => {
+    expect(
+      translate.t("remoteTerminal.terminal.socketClosedLine", { code: "1006", reason: "" }),
+    ).toBe("Terminal WebSocket closed with code 1006.");
+  });
+
   it("should fallback to English if key is missing in another locale", async () => {
     // We haven't registered other locales in the test environment yet,
     // but the logic should fallback to 'en' map which is always there.

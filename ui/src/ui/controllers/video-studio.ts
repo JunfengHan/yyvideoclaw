@@ -11,6 +11,7 @@
 // `control-ui-bootstrap.ts` so the controller works whether the Control UI
 // sits behind gateway-password or gateway-token auth.
 
+import { i18n } from "../../i18n/index.ts";
 import { resolveControlUiAuthCandidates } from "../control-ui-auth.ts";
 import { normalizeBasePath } from "../navigation.ts";
 import type {
@@ -205,6 +206,13 @@ export async function loadVideoStudioStatusState(
   } finally {
     state.videoStudioLoading = false;
   }
+  // Mirror the current host UI locale to the embedded Pixelle backend so
+  // the iframe's language picker stays aligned with the shell. Idempotent
+  // and dedupe-guarded inside `ensureHostLanguageSync`, so it's safe to
+  // call from every status refresh — first-time arrivals (cold tab open
+  // or HMR replacing the polling closure) will push, subsequent ticks
+  // skip the network round-trip.
+  ensureHostLanguageSync(state);
   // Note: we deliberately no longer auto-call `loadFrameTemplates` when the
   // backend transitions to `ready`. The new embedded Streamlit UI renders
   // its own template picker, so pre-fetching via the legacy FastAPI
@@ -504,6 +512,67 @@ export function mapStatusToBackendState(
 // ---------------------------------------------------------------------------
 
 const STATUS_POLL_INTERVAL_MS = 3_000;
+
+// ---------------------------------------------------------------------------
+// Host UI language sync.
+//
+// The embedded Pixelle Streamlit only resolves its locale at process boot
+// from the `PIXELLE_LANGUAGE` env var. To keep the embedded tab matching
+// whatever language the yyvideoclaw shell is showing, we POST the current
+// host UI locale to `/video-studio/host-language` whenever video-studio
+// polling starts (cold start + tab re-entry) and whenever the user flips
+// the shell language via the overview language picker.
+//
+// Dedupe on the last value sent so re-renders don't spam the route, and
+// silently swallow errors — language drift is cosmetic, not fatal.
+// ---------------------------------------------------------------------------
+
+let lastSyncedHostLanguage: string | null = null;
+let hostLanguageSubscription: (() => void) | null = null;
+let hostLanguageDeps: VideoStudioHttpDeps | null = null;
+
+async function postHostLanguage(deps: VideoStudioHttpDeps): Promise<void> {
+  if (typeof window === "undefined") return;
+  const locale = i18n.getLocale();
+  if (!locale || locale === lastSyncedHostLanguage) return;
+  lastSyncedHostLanguage = locale;
+  try {
+    await callVideoStudioRoute<{ ok?: boolean; restarted?: boolean }>(
+      deps,
+      "/video-studio/host-language",
+      {
+        method: "POST",
+        body: JSON.stringify({ language: locale }),
+      },
+    );
+  } catch {
+    // Best-effort: a transient failure here just means the embedded tab
+    // may briefly render in its previous locale until the next sync.
+    lastSyncedHostLanguage = null;
+  }
+}
+
+/**
+ * Push the current host UI locale to the Video Studio backend so the
+ * embedded Pixelle tab boots / re-renders in the same language as the
+ * shell. Subscribes to host-language changes once so subsequent toggles
+ * propagate automatically.
+ *
+ * Idempotent and safe to call from any tab-activation / status-refresh
+ * path; downstream restarts are debounced inside the supervisor.
+ */
+export function ensureHostLanguageSync(deps: VideoStudioHttpDeps): void {
+  if (typeof window === "undefined") return;
+  hostLanguageDeps = deps;
+  void postHostLanguage(deps);
+  if (hostLanguageSubscription === null) {
+    hostLanguageSubscription = i18n.subscribe(() => {
+      if (hostLanguageDeps) {
+        void postHostLanguage(hostLanguageDeps);
+      }
+    });
+  }
+}
 
 export function startVideoStudioPolling(
   state: VideoStudioControllerState & VideoStudioHttpDeps,

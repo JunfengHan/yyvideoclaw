@@ -1,0 +1,529 @@
+.nav-subsection {
+  display: grid;
+  gap: 4px;
+}
+
+.nav-subsection__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 10px;
+  color: color-mix(in srgb, var(--muted) 80%, var(--text) 20%);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.nav-subsection__chevron {
+  display: inline-flex;
+  width: 12px;
+  height: 12px;
+  color: var(--muted);
+}
+
+.nav-subsection__chevron svg {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nav-subsection__items {
+  display: grid;
+  gap: 4px;
+  padding-left: 16px;
+}
+
+.nav-subsection__items .nav-item {
+  min-height: 36px;
+}
+
+.remote-terminal-page {
+  display: grid;
+  gap: 16px;
+}
+
+.remote-terminal-message {
+  margin: 0;
+}
+
+.remote-terminal-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.remote-terminal-grid--profiles {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.remote-terminal-card,
+.remote-terminal-console {
+  padding: 18px;
+}
+
+.remote-terminal-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: color-mix(in srgb, black 62%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.remote-terminal-profile-dialog {
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  box-shadow: 0 28px 80px color-mix(in srgb, black 48%, transparent);
+}
+
+.remote-terminal-dialog__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.remote-terminal-dialog__header h3,
+.remote-terminal-dialog__header p {
+  margin: 0;
+}
+
+.remote-terminal-dialog__header p {
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+.remote-terminal-dialog__message {
+  margin: 0 0 14px;
+}
+
+.remote-terminal-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.remote-terminal-description-field {
+  margin-top: 12px;
+}
+
+.remote-terminal-password-field {
+  grid-column: 1 / -1;
+}
+
+.remote-terminal-password-field small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.remote-terminal-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.remote-terminal-card>.remote-terminal-actions {
+  margin-top: 14px;
+}
+
+.remote-terminal-dialog__actions {
+  justify-content: flex-end;
+}
+
+.remote-terminal-profile-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  width: 100%;
+}
+
+.remote-terminal-profile {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  grid-auto-rows: auto;
+  row-gap: 12px;
+  align-content: start;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-elevated) 74%, transparent);
+  min-height: 168px;
+  box-sizing: border-box;
+}
+
+.remote-terminal-profile--active {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  background: color-mix(in srgb, var(--accent-subtle) 65%, var(--bg-elevated) 35%);
+}
+
+.remote-terminal-profile--connected {
+  border-color: color-mix(in srgb, var(--ok) 55%, var(--border));
+  background: color-mix(in srgb, var(--ok) 12%, var(--bg-elevated) 88%);
+}
+
+/*
+ * "Add server" card. Matches the saved-server card box (size, border,
+ * radius, background) so the row reads as a uniform grid; the inner
+ * layout is a single centred column with the plus icon stacked on top
+ * of the label. Rendered as a <button> for keyboard / a11y, but we
+ * strip the native button chrome so it visually matches an <article>.
+ */
+.remote-terminal-profile--add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  border-style: dashed;
+  color: var(--muted);
+  font: inherit;
+  transition: border-color 120ms ease,
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.remote-terminal-profile--add:hover,
+.remote-terminal-profile--add:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent-subtle) 55%, var(--bg-elevated) 45%);
+  color: var(--accent);
+  outline: none;
+}
+
+.remote-terminal-profile__add-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--accent-subtle) 70%, transparent);
+  color: var(--accent);
+}
+
+.remote-terminal-profile__add-icon svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.remote-terminal-profile__add-label {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.remote-terminal-profile__main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  min-width: 0;
+  color: inherit;
+  text-align: left;
+}
+
+.remote-terminal-profile__main strong,
+.remote-terminal-profile__main small,
+.remote-terminal-profile__main em {
+  display: block;
+}
+
+.remote-terminal-profile__body {
+  min-width: 0;
+}
+
+.remote-terminal-profile__main small {
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remote-terminal-profile__main em {
+  margin-top: 5px;
+  color: var(--muted);
+  font-style: normal;
+  font-size: 12px;
+}
+
+.remote-terminal-profile__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--secondary) 80%, transparent);
+  color: var(--accent);
+}
+
+.remote-terminal-profile--connected .remote-terminal-profile__icon {
+  background: color-mix(in srgb, var(--ok) 18%, transparent);
+  color: var(--ok);
+}
+
+.remote-terminal-profile__icon svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.remote-terminal-profile__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.remote-terminal-profile__buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.remote-terminal-delete-confirm {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--danger-subtle);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+
+.remote-terminal-delete-confirm p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.remote-terminal-delete-confirm__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.remote-terminal-empty {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  min-height: 120px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.remote-terminal-empty .empty-state__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent-subtle) 70%, transparent);
+  flex: 0 0 auto;
+}
+
+.remote-terminal-empty .empty-state__icon svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.remote-terminal-console {
+  display: grid;
+  gap: 14px;
+}
+
+.remote-terminal-live {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--bg-elevated) 76%, transparent);
+  overflow: hidden;
+}
+
+.remote-terminal-live__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.remote-terminal-live__header strong {
+  margin-right: auto;
+}
+
+.remote-terminal-live__status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-full);
+  background: var(--secondary);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.remote-terminal-live__status--connected {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+}
+
+.remote-terminal-live__status--connecting {
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+}
+
+.remote-terminal-live__status--error {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+
+.remote-terminal-live__comfyui {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--accent-subtle) 65%, transparent);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.remote-terminal-live__comfyui--checking,
+.remote-terminal-live__comfyui--starting,
+.remote-terminal-live__comfyui--waiting,
+.remote-terminal-live__comfyui--applying {
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+}
+
+.remote-terminal-live__comfyui--ready,
+.remote-terminal-live__comfyui--active {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
+}
+
+.remote-terminal-live__comfyui--failed {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+}
+
+.remote-terminal-live__output {
+  min-height: 220px;
+  max-height: 420px;
+  margin: 0;
+  padding: 14px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #d6f7c3;
+  background: #05070d;
+}
+
+.remote-terminal-live__output code {
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.remote-terminal-live__input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 10px 12px 12px;
+}
+
+.remote-terminal-live__quick-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px 12px;
+}
+
+.remote-terminal-live__quick-label {
+  font-size: 12px;
+  color: var(--muted);
+  margin-right: 2px;
+}
+
+.remote-terminal-live__quick-btn {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.remote-terminal-live__quick-btn[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.remote-terminal-live__input {
+  font-family: var(--mono);
+}
+
+@media (max-width: 960px) {
+
+  .remote-terminal-grid,
+  .remote-terminal-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .remote-terminal-modal-backdrop {
+    align-items: stretch;
+    padding: 12px;
+  }
+
+  .remote-terminal-profile-dialog {
+    width: 100%;
+    max-height: calc(100vh - 24px);
+  }
+
+  .remote-terminal-dialog__header,
+  .remote-terminal-delete-confirm {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

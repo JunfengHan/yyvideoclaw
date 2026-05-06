@@ -1,4 +1,5 @@
 import { connectGateway } from "./app-gateway.ts";
+import { createIframeBridgeListener, type IframeBridgeHost } from "./app-iframe-bridge.ts";
 import {
   startLogsPolling,
   startNodesPolling,
@@ -49,6 +50,14 @@ type LifecycleHost = {
   logsEntries: unknown[];
   popStateHandler: () => void;
   topbarObserver: ResizeObserver | null;
+  /**
+   * Listener installed on the global `window` to receive
+   * `postMessage` traffic from embedded iframes (Pixelle Streamlit etc.).
+   * Stored on the host so `handleDisconnected` can detach it
+   * symmetrically and avoid leaks across reconnect / HMR cycles.
+   */
+  iframeBridgeListener?: ((event: MessageEvent) => void) | null;
+  setTab(next: Tab): void;
 };
 
 export function handleConnected(host: LifecycleHost) {
@@ -59,6 +68,16 @@ export function handleConnected(host: LifecycleHost) {
   syncTabWithLocation(host as unknown as Parameters<typeof syncTabWithLocation>[0], true);
   syncThemeWithSettings(host as unknown as Parameters<typeof syncThemeWithSettings>[0]);
   window.addEventListener("popstate", host.popStateHandler);
+  // Cross-iframe nav bridge: lets embedded UIs (e.g. Pixelle's ComfyUI
+  // settings panel) request a tab switch via `postMessage`. Installed
+  // here so it's active for the entire connected lifetime; torn down
+  // in `handleDisconnected` to avoid duplicate listeners across HMR /
+  // reconnect cycles.
+  if (!host.iframeBridgeListener) {
+    const listener = createIframeBridgeListener(host as IframeBridgeHost);
+    host.iframeBridgeListener = listener;
+    window.addEventListener("message", listener);
+  }
   void bootstrapReady.finally(() => {
     if (host.connectGeneration !== connectGeneration) {
       return;
@@ -84,6 +103,10 @@ export function handleFirstUpdated(host: LifecycleHost) {
 export function handleDisconnected(host: LifecycleHost) {
   host.connectGeneration += 1;
   window.removeEventListener("popstate", host.popStateHandler);
+  if (host.iframeBridgeListener) {
+    window.removeEventListener("message", host.iframeBridgeListener);
+    host.iframeBridgeListener = null;
+  }
   stopNodesPolling(host as unknown as Parameters<typeof stopNodesPolling>[0]);
   stopLogsPolling(host as unknown as Parameters<typeof stopLogsPolling>[0]);
   stopDebugPolling(host as unknown as Parameters<typeof stopDebugPolling>[0]);

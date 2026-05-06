@@ -60,6 +60,11 @@ import {
   resolveHttpBrowserOriginPolicy,
 } from "./http-utils.js";
 import { resolveRequestClientIp } from "./net.js";
+import { handlePixelleComfyUiConfigRequest } from "./pixelle-comfyui-config.js";
+import {
+  handleRemoteServiceProxyHttpRequest,
+  handleRemoteTerminalUpgrade,
+} from "./remote-terminal-ws.js";
 import { DEDUPE_MAX, DEDUPE_TTL_MS } from "./server-constants.js";
 import { authorizeCanvasRequest, isCanvasPath } from "./server/http-auth.js";
 import { resolvePluginRouteRuntimeOperatorScopes } from "./server/plugin-route-runtime-scopes.js";
@@ -1084,6 +1089,34 @@ export function createGatewayHttpServer(opts: {
           ),
       });
 
+      requestStages.push({
+        name: "pixelle-comfyui-config",
+        run: () =>
+          handlePixelleComfyUiConfigRequest({
+            req,
+            res,
+            controlUiBasePath,
+            resolvedAuth,
+            trustedProxies,
+            allowRealIpFallback,
+            rateLimiter,
+          }),
+      });
+
+      requestStages.push({
+        name: "remote-terminal-service-proxy",
+        run: () =>
+          handleRemoteServiceProxyHttpRequest({
+            req,
+            res,
+            controlUiBasePath,
+            resolvedAuth,
+            trustedProxies,
+            allowRealIpFallback,
+            rateLimiter,
+          }),
+      });
+
       if (controlUiEnabled) {
         requestStages.push({
           name: "control-ui-assistant-media",
@@ -1172,6 +1205,8 @@ export function attachGatewayUpgradeHandler(opts: {
   getResolvedAuth?: () => ResolvedGatewayAuth;
   /** Optional rate limiter for auth brute-force protection. */
   rateLimiter?: AuthRateLimiter;
+  /** Optional Control UI base path for scoped WebSocket routes. */
+  controlUiBasePath?: string;
   /** Optional logger for error diagnostics. */
   log?: { warn: (msg: string) => void };
 }) {
@@ -1201,6 +1236,20 @@ export function attachGatewayUpgradeHandler(opts: {
         req.url = scopedCanvas.rewrittenUrl;
       }
       const resolvedAuth = getResolvedAuth();
+      if (
+        handleRemoteTerminalUpgrade({
+          req,
+          socket,
+          head,
+          controlUiBasePath: opts.controlUiBasePath,
+          resolvedAuth,
+          getResolvedAuth,
+          rateLimiter,
+          log,
+        })
+      ) {
+        return;
+      }
       if (canvasHost) {
         const url = new URL(req.url ?? "/", "http://localhost");
         if (url.pathname === CANVAS_WS_PATH) {

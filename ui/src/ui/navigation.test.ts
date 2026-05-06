@@ -48,6 +48,7 @@ describe("iconForTab", () => {
     expect(iconForTab("config")).toBe("settings");
     expect(iconForTab("debug")).toBe("bug");
     expect(iconForTab("logs")).toBe("scrollText");
+    expect(iconForTab("remoteTerminal")).toBe("terminal");
     expect(iconForTab("videoStudio")).toBe("film");
   });
 
@@ -129,12 +130,14 @@ describe("pathForTab", () => {
   it("returns correct path without base", () => {
     expect(pathForTab("chat")).toBe("/chat");
     expect(pathForTab("overview")).toBe("/overview");
+    expect(pathForTab("remoteTerminal")).toBe("/yy-video/remote-servers/terminal");
     expect(pathForTab("videoStudio")).toBe("/video-studio");
   });
 
   it("prepends base path", () => {
     expect(pathForTab("chat", "/ui")).toBe("/ui/chat");
     expect(pathForTab("sessions", "/apps/openclaw")).toBe("/apps/openclaw/sessions");
+    expect(pathForTab("remoteTerminal", "/ui")).toBe("/ui/yy-video/remote-servers/terminal");
     expect(pathForTab("videoStudio", "/ui")).toBe("/ui/video-studio");
   });
 });
@@ -146,6 +149,7 @@ describe("tabFromPath", () => {
     expect(tabFromPath("/sessions")).toBe("sessions");
     expect(tabFromPath("/dreaming")).toBe("dreams");
     expect(tabFromPath("/dreams")).toBe("dreams");
+    expect(tabFromPath("/yy-video/remote-servers/terminal")).toBe("remoteTerminal");
     expect(tabFromPath("/video-studio")).toBe("videoStudio");
   });
 
@@ -194,6 +198,7 @@ describe("inferBasePathFromPathname", () => {
 describe("TAB_GROUPS", () => {
   it("contains all expected groups", () => {
     const labels = TAB_GROUPS.map((g) => g.label);
+    expect(labels).toContain("yyVideo");
     expect(labels).toContain("chat");
     expect(labels).toContain("control");
     expect(labels).toContain("agent");
@@ -206,9 +211,25 @@ describe("TAB_GROUPS", () => {
     expect(uniqueTabs.size).toBe(allTabs.length);
   });
 
-  it("registers videoStudio at the tail of the `agent` group", () => {
+  it("registers videoStudio at the tail of the `yyVideo` group", () => {
+    // videoStudio used to live under `agent` but was relocated next to
+    // remoteTerminal so the YYVIDEO surface owns the whole pipeline
+    // (server provisioning + Pixelle authoring).
+    const yyVideoGroup = TAB_GROUPS.find((g) => g.label === "yyVideo");
+    expect(yyVideoGroup).toBeDefined();
+    expect(yyVideoGroup?.tabs.at(-1)).toBe("videoStudio");
     const agentGroup = TAB_GROUPS.find((g) => g.label === "agent");
-    expect(agentGroup).toBeDefined();
-    expect(agentGroup?.tabs.at(-1)).toBe("videoStudio");
+    expect(agentGroup?.tabs).not.toContain("videoStudio");
+  });
+
+  it("registers remoteTerminal as a top-level entry under yyVideo", () => {
+    const yyVideoGroup = TAB_GROUPS.find((g) => g.label === "yyVideo");
+    expect(yyVideoGroup).toBeDefined();
+    // The legacy "Remote servers" submenu was flattened: remoteTerminal
+    // now appears directly under YYVIDEO and renders as
+    // "Remote servers" / "ComfyUI 服务器" via tabs.remoteTerminal.
+    expect(yyVideoGroup?.submenuLabel).toBeUndefined();
+    expect(yyVideoGroup?.tabs).toContain("remoteTerminal");
+    expect(yyVideoGroup?.tabs).toContain("videoStudio");
   });
 });

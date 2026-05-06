@@ -41,7 +41,7 @@
 3. WHEN 用户直接访问 `<basePath>/video-studio` URL THEN 系统 SHALL 正确解析并渲染该 tab（复用现有 `tabFromPath` / `pathForTab`）。
 4. WHEN 用户已在其他 tab 且有未保存草稿 THEN 系统 SHALL 不丢失该草稿（与现有其他 tab 的切换行为一致）。
 5. IF 当前用户的 yyvideoclaw 安装包**未启用 Video Studio 功能开关**（`features.videoStudio = false`）THEN 系统 SHALL 不渲染该 tab，且路径访问回退到 `chat`。
-6. WHEN 渲染该 tab THEN i18n 标题与副标题 SHALL 通过 `t("tabs.videoStudio")` / `t("subtitles.videoStudio")` 翻译，默认英文 "Video Studio"、中文 "视频工作室"。
+6. WHEN 渲染该 tab THEN i18n 标题与副标题 SHALL 通过 `t("tabs.videoStudio")` / `t("subtitles.videoStudio")` 翻译，默认英文 "Video Studio"、中文 "Pixelle-Video"。
 
 ---
 

@@ -159,6 +159,7 @@ import { renderExecApprovalPrompt } from "./views/exec-approval.ts";
 import { renderGatewayUrlConfirmation } from "./views/gateway-url-confirmation.ts";
 import { renderLoginGate } from "./views/login-gate.ts";
 import { renderOverview } from "./views/overview.ts";
+import { renderRemoteTerminalView } from "./views/remote-terminal-view.ts";
 import { renderVideoStudioView } from "./views/video-studio-view.ts";
 
 // Lazy-loaded view modules – deferred so the initial bundle stays small.
@@ -1342,9 +1343,25 @@ export function renderApp(state: AppViewState) {
                           `
                         : nothing}
                       <div class="nav-section__items">
-                        ${group.tabs.map((tab) =>
-                          renderTab(state, tab, { collapsed: navCollapsed }),
-                        )}
+                        ${group.submenuLabel && !navCollapsed
+                          ? html`
+                              <div class="nav-subsection">
+                                <div class="nav-subsection__label">
+                                  <span class="nav-subsection__chevron" aria-hidden="true">
+                                    ${icons.chevronRight}
+                                  </span>
+                                  <span>${t(`nav.${group.submenuLabel}`)}</span>
+                                </div>
+                                <div class="nav-subsection__items">
+                                  ${group.tabs.map((tab) =>
+                                    renderTab(state, tab, { collapsed: navCollapsed }),
+                                  )}
+                                </div>
+                              </div>
+                            `
+                          : group.tabs.map((tab) =>
+                              renderTab(state, tab, { collapsed: navCollapsed }),
+                            )}
                       </div>
                     </section>
                   `;
@@ -2430,6 +2447,15 @@ export function renderApp(state: AppViewState) {
               onResetGroundedShortTerm: () => resetGroundedShortTerm(state),
               onRepairDreamingArtifacts: () => repairDreamingArtifacts(state),
               onRequestUpdate: requestHostUpdate,
+            })
+          : nothing}
+        ${state.tab === "remoteTerminal"
+          ? renderRemoteTerminalView({
+              basePath: state.basePath,
+              hello: state.hello,
+              settings: state.settings,
+              password: state.password,
+              requestUpdate: requestHostUpdate,
             })
           : nothing}
         ${state.tab === "videoStudio"

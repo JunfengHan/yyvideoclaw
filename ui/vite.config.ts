@@ -81,9 +81,11 @@ function gatewayProxy(
   };
   if (bearer) {
     options.configure = (proxy) => {
-      proxy.on("proxyReq", (proxyReq) => {
+      const setAuthorization = (proxyReq: { setHeader: (name: string, value: string) => void }) => {
         proxyReq.setHeader("authorization", `Bearer ${bearer}`);
-      });
+      };
+      proxy.on("proxyReq", setAuthorization);
+      proxy.on("proxyReqWs", setAuthorization);
     };
   }
   return options;
@@ -131,9 +133,9 @@ export default defineConfig(() => {
       // payload.
       //
       // IMPORTANT: only proxy the concrete API subpaths (status, install,
-      // start, stop, preflight, proxy). The bare `/video-studio` URL is a
-      // SPA history route and must fall back to `index.html`, not the
-      // JSON status endpoint.
+      // start, stop, preflight, proxy, host-language). The bare
+      // `/video-studio` URL is a SPA history route and must fall back to
+      // `index.html`, not the JSON status endpoint.
       proxy: {
         "/video-studio/status": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
         "/video-studio/install": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
@@ -142,8 +144,27 @@ export default defineConfig(() => {
         "/video-studio/restart": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
         "/video-studio/preflight": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
         "/video-studio/proxy": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
+        // Host UI language sync: the Control UI POSTs the current shell
+        // locale here so the embedded Pixelle Streamlit tab restarts with
+        // a matching `PIXELLE_LANGUAGE` env. Without this entry the dev
+        // server returns the SPA index and surfaces a 404 in DevTools.
+        "/video-studio/host-language": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
+        // Pixelle config writer: lets the Remote Terminal "Activate for
+        // Pixelle" flow point the embedded backend at the SSH-tunneled
+        // ComfyUI URL. Without this entry the dev server falls back to
+        // the SPA index for /video-studio/config/comfyui and we surface
+        // a misleading "HTTP 404 Not Found" in the terminal log.
+        "/video-studio/config/comfyui": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
         "/v1": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
         "/plugins": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
+        "/remote-terminal/ws": gatewayProxy(gatewayTarget, devBearer, { ws: true }),
+        // HTTP reverse-proxy for SSH-tunneled remote services (ComfyUI on
+        // :6006, etc.). Without this, opening the "Open remote service"
+        // button from the Vite dev server falls back to the SPA index
+        // and looks like the terminal page "randomly jumped" — which is
+        // exactly what users report. Keep `ws: false`; the tunnel itself
+        // uses a separate upgrade path.
+        "/remote-terminal/proxy": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
         "/gateway": gatewayProxy(gatewayTarget, null, { ws: true }),
       },
     },

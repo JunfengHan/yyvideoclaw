@@ -24,4 +24,12 @@ describe("TAB_GROUPS", () => {
     expect(tabFromPath("/ai-agents")).toBe("aiAgents");
     expect(tabFromPath("/config")).toBe("config");
   });
+
+  it("publishes remote terminal as a top-level YYVIDEO entry", () => {
+    const yyVideo = TAB_GROUPS.find((group) => group.label === "yyVideo");
+    expect(yyVideo?.submenuLabel).toBeUndefined();
+    expect(yyVideo?.tabs).toContain("remoteTerminal");
+    expect(yyVideo?.tabs).toContain("videoStudio");
+    expect(tabFromPath("/yy-video/remote-servers/terminal")).toBe("remoteTerminal");
+  });
 });

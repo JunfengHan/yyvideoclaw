@@ -2,13 +2,20 @@ import { t } from "../i18n/index.ts";
 import type { IconName } from "./icons.js";
 import { normalizeLowercaseStringOrEmpty } from "./string-coerce.ts";
 
-export const TAB_GROUPS = [
+type TabGroup = {
+  label: string;
+  tabs: readonly Tab[];
+  submenuLabel?: string;
+};
+
+export const TAB_GROUPS: readonly TabGroup[] = [
+  { label: "yyVideo", tabs: ["remoteTerminal", "videoStudio"] },
   { label: "chat", tabs: ["chat"] },
   {
     label: "control",
     tabs: ["overview", "channels", "instances", "sessions", "usage", "cron"],
   },
-  { label: "agent", tabs: ["agents", "skills", "nodes", "dreams", "videoStudio"] },
+  { label: "agent", tabs: ["agents", "skills", "nodes", "dreams"] },
   {
     label: "settings",
     tabs: [
@@ -25,6 +32,7 @@ export const TAB_GROUPS = [
 ] as const;
 
 export type Tab =
+  | "remoteTerminal"
   | "agents"
   | "overview"
   | "channels"
@@ -47,6 +55,7 @@ export type Tab =
   | "videoStudio";
 
 const TAB_PATHS: Record<Tab, string> = {
+  remoteTerminal: "/yy-video/remote-servers/terminal",
   agents: "/agents",
   overview: "/overview",
   channels: "/channels",
@@ -159,6 +168,8 @@ export function inferBasePathFromPathname(pathname: string): string {
 
 export function iconForTab(tab: Tab): IconName {
   switch (tab) {
+    case "remoteTerminal":
+      return "terminal";
     case "agents":
       return "folder";
     case "chat":
