@@ -1408,33 +1408,12 @@ export function renderApp(state: AppViewState) {
         </aside>
       </div>
       <main class="content ${isChat ? "content--chat" : ""}">
-        ${state.updateAvailable &&
-        state.updateAvailable.latestVersion !== state.updateAvailable.currentVersion &&
-        !isUpdateBannerDismissed(state.updateAvailable)
-          ? html`<div class="update-banner callout danger" role="alert">
-              <strong>Update available:</strong> v${state.updateAvailable.latestVersion} (running
-              v${state.updateAvailable.currentVersion}).
-              <button
-                class="btn btn--sm update-banner__btn"
-                ?disabled=${state.updateRunning || !state.connected}
-                @click=${() => runUpdate(state)}
-              >
-                ${state.updateRunning ? "Updating…" : "Update now"}
-              </button>
-              <button
-                class="update-banner__close"
-                type="button"
-                title="Dismiss"
-                aria-label="Dismiss update banner"
-                @click=${() => {
-                  dismissUpdateBanner(state.updateAvailable);
-                  state.updateAvailable = null;
-                }}
-              >
-                ${icons.x}
-              </button>
-            </div>`
-          : nothing}
+        ${
+          // Update banner is disabled in this fork: we run as an independent
+          // product and do not want runtime hints pointing at upstream npm
+          // releases. See AGENTS.md / README for the upgrade workflow.
+          nothing
+        }
         ${state.tab === "config"
           ? nothing
           : html`<section class="content-header">

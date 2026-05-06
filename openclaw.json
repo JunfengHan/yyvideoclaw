@@ -55,6 +55,12 @@
     "lastRunCommand": "onboard",
     "lastRunMode": "local"
   },
+  "update": {
+    "checkOnStart": false,
+    "auto": {
+      "enabled": false
+    }
+  },
   "models": {
     "providers": {
       "openai": {

@@ -4,9 +4,7 @@
       "workspace": "/Users/johnhan/.openclaw/workspace",
       "model": {
         "primary": "qwen/qwen3.5-plus",
-        "fallbacks": [
-          "openai/gpt-5.4-mini"
-        ]
+        "fallbacks": ["openai/gpt-5.4-mini"]
       },
       "contextInjection": "always",
       "bootstrapMaxChars": 20000,
@@ -56,6 +54,12 @@
     "lastRunVersion": "2026.4.24",
     "lastRunCommand": "onboard",
     "lastRunMode": "local"
+  },
+  "update": {
+    "checkOnStart": false,
+    "auto": {
+      "enabled": false
+    }
   },
   "models": {
     "providers": {
