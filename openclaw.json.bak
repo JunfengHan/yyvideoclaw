@@ -4,8 +4,13 @@
       "workspace": "/Users/johnhan/.openclaw/workspace",
       "model": {
         "primary": "qwen/qwen3.5-plus",
-        "fallbacks": ["openai/gpt-5.4-mini"]
-      }
+        "fallbacks": [
+          "openai/gpt-5.4-mini"
+        ]
+      },
+      "contextInjection": "always",
+      "bootstrapMaxChars": 50000,
+      "bootstrapTotalMaxChars": 300000
     }
   },
   "gateway": {
@@ -16,6 +21,13 @@
     },
     "port": 18789,
     "bind": "loopback",
+    "http": {
+      "endpoints": {
+        "chatCompletions": {
+          "enabled": true
+        }
+      }
+    },
     "tailscale": {
       "mode": "off",
       "resetOnExit": false
@@ -26,7 +38,7 @@
   },
   "meta": {
     "lastTouchedVersion": "2026.4.24",
-    "lastTouchedAt": "2026-04-26T14:54:27.362Z"
+    "lastTouchedAt": "2026-05-06T18:44:40.183Z"
   },
   "session": {
     "dmScope": "per-channel-peer"
@@ -58,6 +70,16 @@
       "qwen": {
         "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
         "models": []
+      }
+    }
+  },
+  "plugins": {
+    "entries": {
+      "qwen": {
+        "enabled": true
+      },
+      "openai": {
+        "enabled": true
       }
     }
   }

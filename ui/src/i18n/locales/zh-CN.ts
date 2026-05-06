@@ -171,7 +171,7 @@ export const zh_CN: TranslationMap = {
     videoStudio: "Pixelle-Video",
   },
   subtitles: {
-    remoteTerminal: "Saved SSH profiles and an interactive browser terminal.",
+    remoteTerminal: "已保存的 SSH 配置与可交互的浏览器终端。",
     agents: "工作区、工具、身份。",
     overview: "状态、入口点、健康。",
     channels: "频道和设置。",

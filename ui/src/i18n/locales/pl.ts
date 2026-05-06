@@ -302,6 +302,13 @@ export const pl: TranslationMap = {
       socketClosedLine: "Terminal WebSocket closed with code {code}{reason}.",
       disconnectedLine: "Terminal disconnected.",
       socketError: "Terminal WebSocket error.",
+      inputPlaceholder: "systemctl status nginx",
+    },
+    quickCommands: {
+      label: "Common commands:",
+      ariaLabel: "ComfyUI quick commands",
+      enableProxy: "Enable proxy",
+      startComfyUi: "Start ComfyUI",
     },
     messages: {
       required: "Enter a profile name and either a host/IP or SSH config alias.",
