@@ -5,6 +5,30 @@ import { repeat } from "lit/directives/repeat.js";
 export interface ChatModelPickerOption {
   value: string;
   label: string;
+  /** Provider id used for grouping. Empty/undefined options fall under
+   * "Other". The implicit empty default option is rendered ungrouped. */
+  provider?: string;
+}
+
+type Group = {
+  /** Provider id, or null for the implicit Default option group. */
+  provider: string | null;
+  /** Human-readable provider label rendered in the group header. */
+  label: string;
+  entries: ChatModelPickerOption[];
+};
+
+type FlatEntry =
+  | { kind: "default"; entry: ChatModelPickerOption }
+  | { kind: "header"; group: Group; expanded: boolean }
+  | { kind: "option"; entry: ChatModelPickerOption; group: Group };
+
+function providerDisplayName(provider: string): string {
+  const trimmed = provider.trim();
+  if (!trimmed) {
+    return "Other";
+  }
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 }
 
 /**
@@ -123,6 +147,10 @@ export class ChatModelPicker extends LitElement {
       padding: 4px 0;
     }
 
+    .list:focus {
+      outline: none;
+    }
+
     .option {
       padding: 6px 12px;
       font-size: 13px;
@@ -148,6 +176,95 @@ export class ChatModelPicker extends LitElement {
       opacity: 0.6;
       font-style: italic;
       text-align: center;
+    }
+
+    .group-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-muted, rgba(255, 255, 255, 0.55));
+      cursor: pointer;
+      user-select: none;
+      background: var(--surface-1, rgba(255, 255, 255, 0.02));
+      border-top: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+      text-align: left;
+    }
+
+    .group-header:first-child {
+      border-top: 0;
+    }
+
+    .group-header:hover,
+    .group-header.active {
+      color: var(--text-strong, rgba(255, 255, 255, 0.85));
+      background: var(--surface-2, rgba(255, 255, 255, 0.05));
+    }
+
+    .group-header__label {
+      flex: 0 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .group-header__count {
+      margin-left: auto;
+      font-weight: 500;
+      opacity: 0.7;
+    }
+
+    .group-header__caret {
+      flex: none;
+      font-size: 9px;
+      transition: transform 120ms ease;
+    }
+
+    .group-header[data-expanded="true"] .group-header__caret {
+      transform: rotate(90deg);
+    }
+
+    /* Second-level (grouped) options: deeper indent + a thin guide line on
+     * the left to make the parent/child hierarchy visible at a glance. */
+    .option {
+      position: relative;
+      padding-left: 28px;
+      color: var(--text-strong, rgba(255, 255, 255, 0.82));
+    }
+
+    .option::before {
+      content: "";
+      position: absolute;
+      left: 14px;
+      top: 4px;
+      bottom: 4px;
+      width: 1px;
+      background: var(--border, rgba(255, 255, 255, 0.18));
+      pointer-events: none;
+    }
+
+    .option:hover::before,
+    .option.active::before {
+      background: var(--accent, #4c8bf5);
+      opacity: 0.7;
+    }
+
+    .option.selected::before {
+      background: var(--accent, #4c8bf5);
+      opacity: 1;
+    }
+
+    /* Default option pins to the top, ungrouped — no indent, no guide line. */
+    .default-option {
+      padding-left: 12px;
+    }
+
+    .default-option::before {
+      display: none;
     }
 
     /* Light theme tweaks */
@@ -176,6 +293,18 @@ export class ChatModelPicker extends LitElement {
     :host-context(:root[data-theme-mode="light"]) .option.active {
       background: rgba(16, 24, 40, 0.06);
     }
+
+    :host-context(:root[data-theme-mode="light"]) .group-header {
+      background: rgba(16, 24, 40, 0.03);
+      border-top-color: rgba(16, 24, 40, 0.06);
+      color: rgba(16, 24, 40, 0.55);
+    }
+
+    :host-context(:root[data-theme-mode="light"]) .group-header:hover,
+    :host-context(:root[data-theme-mode="light"]) .group-header.active {
+      color: rgba(16, 24, 40, 0.85);
+      background: rgba(16, 24, 40, 0.06);
+    }
   `;
 
   /** List of selectable options. The empty "default" entry is rendered automatically. */
@@ -196,10 +325,25 @@ export class ChatModelPicker extends LitElement {
   /** Accessible label for the trigger. */
   @property({ attribute: "aria-label-text", type: String }) ariaLabelText = "Chat model";
 
+  /** When true, group options by provider with collapsible group headers.
+   * Defaults to true. Set to false for flat-list rendering (parity with
+   * pre-grouping behavior, useful for tests). */
+  @property({ type: Boolean, attribute: "group-by-provider" }) groupByProvider = true;
+
+  /** When true (default), render a search input inside the panel.
+   * Set to false for pickers with a small, fixed option set where search
+   * adds no value (e.g. thinking-level picker). When hidden, keyboard
+   * navigation binds to the panel container instead. */
+  @property({ type: Boolean, attribute: "show-search" }) showSearch = true;
+
   @state() private open = false;
   @state() private query = "";
   @state() private activeIndex = 0;
   @state() private panelStyle = "";
+  /** Per-provider expand override (keyed by provider id). When set, this
+   * overrides the default rule (auto-expand the selected group, collapse
+   * the rest). Cleared on close so panel state stays predictable. */
+  @state() private expandedOverrides = new Map<string, boolean>();
 
   @query(".trigger") private triggerEl?: HTMLButtonElement;
   @query(".search input") private searchInputEl?: HTMLInputElement;
@@ -260,6 +404,127 @@ export class ChatModelPicker extends LitElement {
     });
   }
 
+  /**
+   * Group filtered entries by provider. Default option (value === "") is
+   * always its own ungrouped entry that pins to the top.
+   * Groups are stable-sorted by provider display name; the "Other" bucket
+   * (entries without a provider) sinks to the bottom.
+   */
+  private get filteredGroups(): { defaultOption: ChatModelPickerOption | null; groups: Group[] } {
+    const entries = this.filteredEntries;
+    let defaultOption: ChatModelPickerOption | null = null;
+    const byProvider = new Map<string, Group>();
+    for (const entry of entries) {
+      if (entry.value === "") {
+        defaultOption = entry;
+        continue;
+      }
+      const providerKey = (entry.provider ?? "").trim().toLowerCase();
+      const groupKey = providerKey || "__other__";
+      let group = byProvider.get(groupKey);
+      if (!group) {
+        group = {
+          provider: providerKey || null,
+          label: providerKey ? providerDisplayName(providerKey) : "Other",
+          entries: [],
+        };
+        byProvider.set(groupKey, group);
+      }
+      group.entries.push(entry);
+    }
+    const groups = Array.from(byProvider.values()).toSorted((a, b) => {
+      // "Other" sinks below named providers.
+      if (a.provider === null && b.provider !== null) {
+        return 1;
+      }
+      if (b.provider === null && a.provider !== null) {
+        return -1;
+      }
+      return a.label.localeCompare(b.label);
+    });
+    return { defaultOption, groups };
+  }
+
+  /**
+   * Resolve which provider group should be auto-expanded by default
+   * (the one containing the current selection). With no selection, no
+   * group is forced open.
+   */
+  private get autoExpandedProvider(): string | null {
+    if (!this.value) {
+      return null;
+    }
+    const match = this.allEntries.find((entry) => entry.value === this.value);
+    const provider = (match?.provider ?? "").trim().toLowerCase();
+    return provider || null;
+  }
+
+  /**
+   * Whether a group is currently expanded. Search forces all visible groups
+   * open. With no query, the user's explicit override (if any) wins;
+   * otherwise the group containing the current selection is auto-expanded.
+   */
+  private isGroupExpanded(group: Group): boolean {
+    if (!this.groupByProvider) {
+      return true;
+    }
+    const hasQuery = this.query.trim().length > 0;
+    if (hasQuery) {
+      return true;
+    }
+    const key = (group.provider ?? "__other__").toLowerCase();
+    const override = this.expandedOverrides.get(key);
+    if (override !== undefined) {
+      return override;
+    }
+    // Default: only the auto-expanded provider is open.
+    const auto = this.autoExpandedProvider;
+    if (auto !== null) {
+      return key === auto;
+    }
+    return false;
+  }
+
+  /**
+   * Flatten the visible entries (default + group headers + visible options)
+   * into the order they appear in the DOM. Used for keyboard navigation and
+   * activeIndex bookkeeping. When `groupByProvider=false` the headers are
+   * skipped and entries appear flat.
+   */
+  private get flatVisibleEntries(): FlatEntry[] {
+    const flat: FlatEntry[] = [];
+    const { defaultOption, groups } = this.filteredGroups;
+    if (defaultOption) {
+      flat.push({ kind: "default", entry: defaultOption });
+    }
+    if (!this.groupByProvider) {
+      for (const group of groups) {
+        for (const entry of group.entries) {
+          flat.push({ kind: "option", entry, group });
+        }
+      }
+      return flat;
+    }
+    for (const group of groups) {
+      const expanded = this.isGroupExpanded(group);
+      flat.push({ kind: "header", group, expanded });
+      if (expanded) {
+        for (const entry of group.entries) {
+          flat.push({ kind: "option", entry, group });
+        }
+      }
+    }
+    return flat;
+  }
+
+  private toggleGroupCollapsed(group: Group) {
+    const key = (group.provider ?? "__other__").toLowerCase();
+    const current = this.isGroupExpanded(group);
+    const next = new Map(this.expandedOverrides);
+    next.set(key, !current);
+    this.expandedOverrides = next;
+  }
+
   private get currentLabel(): string {
     const match = this.allEntries.find((entry) => entry.value === this.value);
     return match?.label ?? this.value ?? this.defaultLabel;
@@ -277,16 +542,37 @@ export class ChatModelPicker extends LitElement {
   private openPanel() {
     this.open = true;
     this.query = "";
-    // Default active index = current selection index (if visible), else 0.
-    const entries = this.filteredEntries;
-    const selectedIdx = entries.findIndex((entry) => entry.value === this.value);
-    this.activeIndex = selectedIdx >= 0 ? selectedIdx : 0;
+    // Default active index = position of the selected option among visible
+    // entries (skipping headers); fall back to 0 (first visible row).
+    const flat = this.flatVisibleEntries;
+    const selectedIdx = flat.findIndex(
+      (item) =>
+        (item.kind === "default" && item.entry.value === this.value) ||
+        (item.kind === "option" && item.entry.value === this.value),
+    );
+    this.activeIndex = selectedIdx >= 0 ? selectedIdx : this.firstFocusableIndex(flat);
     // Position after render.
     queueMicrotask(() => {
       this.updatePanelPosition();
-      this.searchInputEl?.focus();
-      this.searchInputEl?.select();
+      if (this.showSearch) {
+        this.searchInputEl?.focus();
+        this.searchInputEl?.select();
+      } else {
+        // No search input — move focus to the list container so keyboard
+        // navigation still works.
+        const list = this.renderRoot.querySelector<HTMLElement>(".list");
+        list?.focus();
+      }
     });
+  }
+
+  private firstFocusableIndex(flat: FlatEntry[]): number {
+    for (let i = 0; i < flat.length; i += 1) {
+      if (flat[i].kind !== "header") {
+        return i;
+      }
+    }
+    return 0;
   }
 
   private closePanel() {
@@ -330,25 +616,41 @@ export class ChatModelPicker extends LitElement {
 
   private onSearchInput(event: Event) {
     this.query = (event.target as HTMLInputElement).value;
-    this.activeIndex = 0;
+    // After re-filter the flat list shape changes; reset to first focusable.
+    this.activeIndex = this.firstFocusableIndex(this.flatVisibleEntries);
   }
 
   private onSearchKeydown(event: KeyboardEvent) {
-    const entries = this.filteredEntries;
+    const flat = this.flatVisibleEntries;
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      if (entries.length === 0) return;
-      this.activeIndex = (this.activeIndex + 1) % entries.length;
+      if (flat.length === 0) return;
+      this.activeIndex = (this.activeIndex + 1) % flat.length;
       this.scrollActiveIntoView();
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      if (entries.length === 0) return;
-      this.activeIndex = (this.activeIndex - 1 + entries.length) % entries.length;
+      if (flat.length === 0) return;
+      this.activeIndex = (this.activeIndex - 1 + flat.length) % flat.length;
+      this.scrollActiveIntoView();
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      this.activeIndex = 0;
+      this.scrollActiveIntoView();
+    } else if (event.key === "End") {
+      event.preventDefault();
+      this.activeIndex = Math.max(0, flat.length - 1);
       this.scrollActiveIntoView();
     } else if (event.key === "Enter") {
       event.preventDefault();
-      const entry = entries[this.activeIndex];
-      if (entry) this.commitSelection(entry.value);
+      const item = flat[this.activeIndex];
+      if (!item) {
+        return;
+      }
+      if (item.kind === "header") {
+        this.toggleGroupCollapsed(item.group);
+      } else {
+        this.commitSelection(item.entry.value);
+      }
     } else if (event.key === "Escape") {
       event.preventDefault();
       this.closePanel();
@@ -361,8 +663,14 @@ export class ChatModelPicker extends LitElement {
   private scrollActiveIntoView() {
     queueMicrotask(() => {
       const list = this.renderRoot.querySelector(".list");
-      const active = list?.querySelector(".option.active") as HTMLElement | null;
-      active?.scrollIntoView({ block: "nearest" });
+      const active = list?.querySelector(
+        ".option.active, .group-header.active",
+      ) as HTMLElement | null;
+      // jsdom (test env) and some embedded views don't implement
+      // scrollIntoView; guard to avoid uncaught errors there.
+      if (typeof active?.scrollIntoView === "function") {
+        active.scrollIntoView({ block: "nearest" });
+      }
     });
   }
 
@@ -382,7 +690,7 @@ export class ChatModelPicker extends LitElement {
   }
 
   protected render() {
-    const entries = this.filteredEntries;
+    const flat = this.flatVisibleEntries;
     return html`
       <button
         type="button"
@@ -403,37 +711,75 @@ export class ChatModelPicker extends LitElement {
       ${this.open
         ? html`
             <div class="panel" role="dialog" style=${this.panelStyle}>
-              <div class="search">
-                <input
-                  type="text"
-                  spellcheck="false"
-                  autocomplete="off"
-                  placeholder=${this.placeholder}
-                  .value=${this.query}
-                  @input=${this.onSearchInput}
-                  @keydown=${this.onSearchKeydown}
-                />
-              </div>
-              <div class="list" role="listbox">
-                ${entries.length === 0
+              ${this.showSearch
+                ? html`<div class="search">
+                    <input
+                      type="text"
+                      spellcheck="false"
+                      autocomplete="off"
+                      placeholder=${this.placeholder}
+                      .value=${this.query}
+                      @input=${this.onSearchInput}
+                      @keydown=${this.onSearchKeydown}
+                    />
+                  </div>`
+                : nothing}
+              <div
+                class="list"
+                role="listbox"
+                tabindex=${this.showSearch ? "-1" : "0"}
+                @keydown=${this.showSearch ? nothing : this.onSearchKeydown}
+              >
+                ${flat.length === 0
                   ? html`<div class="empty">No matches</div>`
                   : repeat(
-                      entries,
-                      (entry) => entry.value || "__default__",
-                      (entry, index) => html`
-                        <div
-                          class="option
-                            ${entry.value === this.value ? " selected" : ""}
-                            ${index === this.activeIndex ? " active" : ""}"
-                          role="option"
-                          aria-selected=${entry.value === this.value ? "true" : "false"}
-                          title=${entry.label}
-                          @mouseenter=${() => (this.activeIndex = index)}
-                          @click=${() => this.commitSelection(entry.value)}
-                        >
-                          ${entry.label}
-                        </div>
-                      `,
+                      flat,
+                      (item, index) => {
+                        if (item.kind === "default") {
+                          return `__default__:${index}`;
+                        }
+                        if (item.kind === "header") {
+                          return `__header__:${item.group.provider ?? "__other__"}`;
+                        }
+                        return item.entry.value || `__opt__:${index}`;
+                      },
+                      (item, index) => {
+                        const active = index === this.activeIndex;
+                        if (item.kind === "header") {
+                          return html`
+                            <div
+                              class="group-header ${active ? " active" : ""}"
+                              role="presentation"
+                              data-expanded=${item.expanded ? "true" : "false"}
+                              data-provider=${item.group.provider ?? "__other__"}
+                              title=${item.group.label}
+                              @mouseenter=${() => (this.activeIndex = index)}
+                              @click=${() => this.toggleGroupCollapsed(item.group)}
+                            >
+                              <span class="group-header__caret" aria-hidden="true">▸</span>
+                              <span class="group-header__label">${item.group.label}</span>
+                              <span class="group-header__count">${item.group.entries.length}</span>
+                            </div>
+                          `;
+                        }
+                        const entry = item.entry;
+                        const isDefault = item.kind === "default";
+                        return html`
+                          <div
+                            class="option
+                              ${isDefault ? " default-option" : ""}
+                              ${entry.value === this.value ? " selected" : ""}
+                              ${active ? " active" : ""}"
+                            role="option"
+                            aria-selected=${entry.value === this.value ? "true" : "false"}
+                            title=${entry.label}
+                            @mouseenter=${() => (this.activeIndex = index)}
+                            @click=${() => this.commitSelection(entry.value)}
+                          >
+                            ${entry.label}
+                          </div>
+                        `;
+                      },
                     )}
               </div>
             </div>

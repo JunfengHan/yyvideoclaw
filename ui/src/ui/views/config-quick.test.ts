@@ -4,6 +4,17 @@ import { render } from "lit";
 import { describe, expect, it, vi } from "vitest";
 import { renderQuickSettings, type QuickSettingsProps } from "./config-quick.ts";
 
+function findApiKeysCard(container: HTMLElement): HTMLElement {
+  const cards = Array.from(container.querySelectorAll<HTMLElement>(".qs-card"));
+  const card = cards.find(
+    (el) => el.querySelector(".qs-card__title")?.textContent?.trim() === "API Keys",
+  );
+  if (!card) {
+    throw new Error("API Keys card not found in rendered output");
+  }
+  return card;
+}
+
 function createProps(overrides: Partial<QuickSettingsProps> = {}): QuickSettingsProps {
   return {
     currentModel: "gpt-5.5",
@@ -89,5 +100,81 @@ describe("renderQuickSettings", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  describe("API Keys card", () => {
+    it("renders an Add button in the header that invokes onApiKeyChange with an empty provider", () => {
+      const onApiKeyChange = vi.fn();
+      const container = document.createElement("div");
+
+      render(renderQuickSettings(createProps({ onApiKeyChange })), container);
+
+      const card = findApiKeysCard(container);
+      const header = card.querySelector<HTMLElement>(".qs-card__header");
+      expect(header).not.toBeNull();
+      const addButton = header?.querySelector<HTMLButtonElement>(".qs-link-btn");
+      expect(addButton).not.toBeNull();
+      expect(addButton?.textContent?.trim().startsWith("Add")).toBe(true);
+
+      addButton?.click();
+
+      expect(onApiKeyChange).toHaveBeenCalledTimes(1);
+      expect(onApiKeyChange).toHaveBeenCalledWith("");
+    });
+
+    it("only renders rows for providers whose keys are configured", () => {
+      const container = document.createElement("div");
+
+      render(
+        renderQuickSettings(
+          createProps({
+            apiKeys: [
+              { provider: "anthropic", label: "Anthropic", masked: "••••abcd", isSet: true },
+              { provider: "openai", label: "OpenAI", masked: "••••wxyz", isSet: true },
+              { provider: "google", label: "Google", isSet: false },
+              { provider: "openrouter", label: "OpenRouter", isSet: false },
+            ],
+          }),
+        ),
+        container,
+      );
+
+      const card = findApiKeysCard(container);
+      const rows = card.querySelectorAll(".qs-card__body .qs-row");
+      expect(rows).toHaveLength(2);
+
+      const labels = Array.from(rows).map((row) =>
+        row.querySelector(".qs-row__label")?.textContent?.trim(),
+      );
+      expect(labels).toEqual(["Anthropic", "OpenAI"]);
+
+      // No row-level "Add →" buttons should remain — only Change buttons inside rows.
+      const rowButtons = card.querySelectorAll(".qs-card__body .qs-link-btn");
+      rowButtons.forEach((btn) => {
+        expect(btn.textContent?.trim()).toBe("Change");
+      });
+    });
+
+    it("shows the empty state when no providers have keys configured", () => {
+      const container = document.createElement("div");
+
+      render(
+        renderQuickSettings(
+          createProps({
+            apiKeys: [
+              { provider: "google", label: "Google", isSet: false },
+              { provider: "openrouter", label: "OpenRouter", isSet: false },
+            ],
+          }),
+        ),
+        container,
+      );
+
+      const card = findApiKeysCard(container);
+      const empty = card.querySelector(".qs-card__body .qs-empty");
+      expect(empty).not.toBeNull();
+      expect(empty?.textContent?.trim()).toBe("No API keys configured");
+      expect(card.querySelectorAll(".qs-card__body .qs-row")).toHaveLength(0);
+    });
   });
 });

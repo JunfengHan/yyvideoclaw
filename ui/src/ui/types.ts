@@ -739,6 +739,17 @@ export type ModelAuthStatusProvider =
 export type ModelAuthStatusResult =
   import("../../../src/gateway/server-methods/models-auth-status.js").ModelAuthStatusResult;
 
+export type ProviderApiKeySource =
+  import("../../../src/gateway/server-methods/models-api-keys.js").ProviderApiKeySource;
+export type ProviderApiKeyStatus =
+  import("../../../src/gateway/server-methods/models-api-keys.js").ProviderApiKeyStatus;
+export type ModelsApiKeysStatusResult =
+  import("../../../src/gateway/server-methods/models-api-keys.js").ModelsApiKeysStatusResult;
+export type ModelsApiKeysSetParams =
+  import("../../../src/gateway/server-methods/models-api-keys.js").ModelsApiKeysSetParams;
+export type ModelsApiKeysSetResult =
+  import("../../../src/gateway/server-methods/models-api-keys.js").ModelsApiKeysSetResult;
+
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
 
 export type LogEntry = {

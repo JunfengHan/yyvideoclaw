@@ -1,0 +1,355 @@
+/* Providers & API Keys section — dark-first, card-based, subtle elevation. */
+
+.providers-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 20px 32px;
+  max-width: 1100px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.providers-section__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.providers-section__title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--text-strong, #f5f7fa);
+  letter-spacing: -0.01em;
+}
+
+.providers-section__desc {
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+  color: var(--text-muted, #a0a6ae);
+  max-width: 640px;
+}
+
+.providers-section__desc code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.06));
+  color: var(--text-strong, #f5f7fa);
+}
+
+.providers-section__actions {
+  display: inline-flex;
+  gap: 8px;
+  flex: none;
+}
+
+.providers-section__banner {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--danger, #ef4444);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+/* Responsive grid: 1 col on narrow screens, 2+ on wider ones. */
+.providers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 14px;
+}
+
+/* ── Card ───────────────────────────────────────────── */
+.providers-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  background: var(--surface-1, rgba(255, 255, 255, 0.03));
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.providers-card:hover {
+  border-color: var(--border-strong, rgba(255, 255, 255, 0.16));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.24);
+}
+
+.providers-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.providers-card__chip {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-strong, #f5f7fa);
+  background: linear-gradient(135deg, rgba(76, 139, 245, 0.25), rgba(47, 107, 216, 0.18));
+  border: 1px solid rgba(76, 139, 245, 0.35);
+  letter-spacing: 0.01em;
+}
+
+.providers-card__titles {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.providers-card__title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-strong, #f5f7fa);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.providers-card__meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-muted, #a0a6ae);
+}
+
+.providers-card__models {
+  opacity: 0.8;
+}
+
+.providers-masked {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.06));
+  color: var(--text-strong, #f5f7fa);
+  letter-spacing: 0.02em;
+}
+
+/* ── Badges ─────────────────────────────────────────── */
+.providers-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.6;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.providers-badge--ok {
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.providers-badge--warn {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.providers-badge--muted {
+  color: var(--text-muted, #a0a6ae);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Body + fields ──────────────────────────────────── */
+.providers-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.providers-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.providers-field__label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted, #a0a6ae);
+}
+
+.providers-field__row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.providers-field__row input {
+  flex: 1 1 200px;
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: inherit;
+  background: var(--surface-2, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: 6px;
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  font-family: inherit;
+}
+
+.providers-field__row input:focus {
+  border-color: var(--accent, #4c8bf5);
+  box-shadow: 0 0 0 3px rgba(76, 139, 245, 0.2);
+}
+
+.providers-field__row input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Buttons ────────────────────────────────────────── */
+.providers-btn {
+  flex: none;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease,
+    box-shadow 150ms ease;
+  white-space: nowrap;
+}
+
+.providers-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.providers-btn--primary {
+  color: #fff;
+  background: var(--accent, #4c8bf5);
+  border-color: var(--accent, #4c8bf5);
+}
+
+.providers-btn--primary:hover:not(:disabled) {
+  background: var(--accent-strong, #2f6bd8);
+  border-color: var(--accent-strong, #2f6bd8);
+  box-shadow: 0 2px 8px rgba(76, 139, 245, 0.3);
+}
+
+.providers-btn--secondary {
+  color: inherit;
+  background: var(--surface-2, rgba(255, 255, 255, 0.05));
+  border-color: var(--border, rgba(255, 255, 255, 0.15));
+}
+
+.providers-btn--secondary:hover:not(:disabled) {
+  border-color: var(--border-strong, rgba(255, 255, 255, 0.3));
+  background: var(--surface-3, rgba(255, 255, 255, 0.08));
+}
+
+.providers-btn--danger {
+  color: #ef4444;
+  background: transparent;
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.providers-btn--danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.75);
+}
+
+.providers-btn--ghost {
+  color: var(--text-muted, #a0a6ae);
+  background: transparent;
+  border-color: var(--border, rgba(255, 255, 255, 0.12));
+}
+
+.providers-btn--ghost:hover:not(:disabled) {
+  color: var(--text-strong, #f5f7fa);
+  border-color: var(--border-strong, rgba(255, 255, 255, 0.25));
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ── Misc ───────────────────────────────────────────── */
+.providers-card__error {
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--danger, #ef4444);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.providers-empty {
+  padding: 32px 16px;
+  border-radius: 10px;
+  border: 1px dashed var(--border, rgba(255, 255, 255, 0.12));
+  text-align: center;
+  color: var(--text-muted, #a0a6ae);
+  font-size: 13px;
+  background: var(--surface-1, rgba(255, 255, 255, 0.02));
+}
+
+.providers-empty__text {
+  max-width: 380px;
+  margin: 0 auto;
+}
+
+/* Light-theme tweaks. */
+:root[data-theme-mode="light"] .providers-card {
+  background: rgba(16, 24, 40, 0.02);
+  border-color: rgba(16, 24, 40, 0.1);
+  box-shadow: none;
+}
+
+:root[data-theme-mode="light"] .providers-card:hover {
+  border-color: rgba(16, 24, 40, 0.2);
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.08);
+}
+
+:root[data-theme-mode="light"] .providers-field__row input {
+  background: #ffffff;
+  border-color: rgba(16, 24, 40, 0.15);
+  color: #101828;
+}
+
+:root[data-theme-mode="light"] .providers-masked,
+:root[data-theme-mode="light"] .providers-section__desc code {
+  background: rgba(16, 24, 40, 0.05);
+  color: #101828;
+}
+
+:root[data-theme-mode="light"] .providers-empty {
+  border-color: rgba(16, 24, 40, 0.15);
+  background: rgba(16, 24, 40, 0.02);
+  color: #6b7280;
+}

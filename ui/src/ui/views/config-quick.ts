@@ -275,33 +275,29 @@ function renderChannelsCard(props: QuickSettingsProps) {
 }
 
 function renderApiKeysCard(props: QuickSettingsProps) {
+  const visible = props.apiKeys.filter((key) => key.isSet);
   return html`
     <div class="qs-card">
-      ${renderCardHeader(icons.plug, "API Keys")}
+      ${renderCardHeader(
+        icons.plug,
+        "API Keys",
+        html`<button class="qs-link-btn" @click=${() => props.onApiKeyChange?.("")}>Add →</button>`,
+      )}
       <div class="qs-card__body">
-        ${props.apiKeys.length === 0
+        ${visible.length === 0
           ? html`<div class="qs-empty muted">No API keys configured</div>`
-          : props.apiKeys.map(
+          : visible.map(
               (key) => html`
                 <div class="qs-row">
                   <span class="qs-row__label">${key.label}</span>
                   <span class="qs-row__value">
-                    ${key.isSet
-                      ? html`
-                          <code class="qs-masked">${key.masked ?? "••••••••"}</code>
-                          <button
-                            class="qs-link-btn"
-                            @click=${() => props.onApiKeyChange?.(key.provider)}
-                          >
-                            Change
-                          </button>
-                        `
-                      : html`<button
-                          class="qs-link-btn"
-                          @click=${() => props.onApiKeyChange?.(key.provider)}
-                        >
-                          Add →
-                        </button>`}
+                    <code class="qs-masked">${key.masked ?? "••••••••"}</code>
+                    <button
+                      class="qs-link-btn"
+                      @click=${() => props.onApiKeyChange?.(key.provider)}
+                    >
+                      Change
+                    </button>
                   </span>
                 </div>
               `,

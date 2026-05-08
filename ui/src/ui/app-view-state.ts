@@ -32,6 +32,7 @@ import type {
   ChatModelOverride,
   ModelAuthStatusResult,
   ModelCatalogEntry,
+  ModelsApiKeysStatusResult,
   NostrProfile,
   PresenceEntry,
   SessionsUsageResult,
@@ -343,6 +344,11 @@ export type AppViewState = {
     modelAuthStatusLoading: boolean;
     modelAuthStatusResult: ModelAuthStatusResult | null;
     modelAuthStatusError: string | null;
+    providerApiKeyStatus: ModelsApiKeysStatusResult | null;
+    providerApiKeyStatusLoading: boolean;
+    providerApiKeyStatusError: string | null;
+    providerApiKeySaving: Record<string, boolean>;
+    providerApiKeyErrors: Record<string, string | null>;
     debugLoading: boolean;
     debugStatus: StatusSummary | null;
     debugHealth: HealthSummary | null;

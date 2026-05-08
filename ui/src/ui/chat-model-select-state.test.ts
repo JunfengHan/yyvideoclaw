@@ -137,6 +137,7 @@ describe("chat-model-select-state", () => {
     expect(resolved.options).toContainEqual({
       value: "nvidia/moonshotai/kimi-k2.5",
       label: "Kimi K2.5 (NVIDIA)",
+      provider: "nvidia",
     });
   });
 
@@ -168,10 +169,12 @@ describe("chat-model-select-state", () => {
     expect(resolved.options).toContainEqual({
       value: "anthropic/claude-3-7-sonnet",
       label: "Claude Sonnet · anthropic",
+      provider: "anthropic",
     });
     expect(resolved.options).toContainEqual({
       value: "openrouter/claude-3-7-sonnet",
       label: "Claude Sonnet · openrouter",
+      provider: "openrouter",
     });
   });
 
@@ -205,10 +208,117 @@ describe("chat-model-select-state", () => {
     expect(resolved.options).toContainEqual({
       value: "anthropic/claude-3-7-sonnet",
       label: "Claude Sonnet · claude-3-7-sonnet · anthropic",
+      provider: "anthropic",
     });
     expect(resolved.options).toContainEqual({
       value: "anthropic/claude-3-7-sonnet-thinking",
       label: "Claude Sonnet · claude-3-7-sonnet-thinking · anthropic",
+      provider: "anthropic",
+    });
+  });
+
+  describe("provider api-key filtering", () => {
+    it("filters catalog options to providers whose API key is configured", () => {
+      const state = createChatModelState({
+        chatModelCatalog: createModelCatalog(
+          { id: "gpt-5", name: "GPT-5", provider: "openai" },
+          { id: "deepseek-chat", name: "DeepSeek Chat", provider: "deepseek" },
+          { id: "qwen3.5-plus", name: "Qwen 3.5 Plus", provider: "qwen" },
+        ),
+        sessionsResult: createSessionsListResult({
+          model: "gpt-5",
+          modelProvider: "openai",
+        }),
+        providerApiKeyStatus: {
+          ts: 1,
+          providers: [
+            {
+              provider: "openai",
+              displayName: "OpenAI",
+              isSet: true,
+              source: "credentials",
+              modelCount: 1,
+            },
+            {
+              provider: "qwen",
+              displayName: "Qwen",
+              isSet: true,
+              source: "credentials",
+              modelCount: 1,
+            },
+            {
+              provider: "deepseek",
+              displayName: "DeepSeek",
+              isSet: false,
+              source: "none",
+              modelCount: 1,
+            },
+          ],
+        },
+      });
+
+      const resolved = resolveChatModelSelectState(state);
+      expectOptionValues(resolved, {
+        include: ["openai/gpt-5", "qwen/qwen3.5-plus"],
+        exclude: ["deepseek/deepseek-chat"],
+      });
+    });
+
+    it("preserves the currently selected option even if its provider has no key", () => {
+      const state = createChatModelState({
+        chatModelCatalog: createModelCatalog(
+          { id: "gpt-5", name: "GPT-5", provider: "openai" },
+          { id: "deepseek-chat", name: "DeepSeek Chat", provider: "deepseek" },
+        ),
+        sessionsResult: createSessionsListResult({
+          model: "deepseek-chat",
+          modelProvider: "deepseek",
+        }),
+        providerApiKeyStatus: {
+          ts: 1,
+          providers: [
+            {
+              provider: "openai",
+              displayName: "OpenAI",
+              isSet: true,
+              source: "credentials",
+              modelCount: 1,
+            },
+            {
+              provider: "deepseek",
+              displayName: "DeepSeek",
+              isSet: false,
+              source: "none",
+              modelCount: 1,
+            },
+          ],
+        },
+      });
+
+      const resolved = resolveChatModelSelectState(state);
+      expect(resolved.currentOverride).toBe("deepseek/deepseek-chat");
+      expectOptionValues(resolved, {
+        include: ["openai/gpt-5", "deepseek/deepseek-chat"],
+      });
+    });
+
+    it("does not filter when providerApiKeyStatus is null (snapshot not loaded yet)", () => {
+      const state = createChatModelState({
+        chatModelCatalog: createModelCatalog(
+          { id: "gpt-5", name: "GPT-5", provider: "openai" },
+          { id: "deepseek-chat", name: "DeepSeek Chat", provider: "deepseek" },
+        ),
+        sessionsResult: createSessionsListResult({
+          model: "gpt-5",
+          modelProvider: "openai",
+        }),
+        providerApiKeyStatus: null,
+      });
+
+      const resolved = resolveChatModelSelectState(state);
+      expectOptionValues(resolved, {
+        include: ["openai/gpt-5", "deepseek/deepseek-chat"],
+      });
     });
   });
 });

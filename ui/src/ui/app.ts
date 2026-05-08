@@ -97,6 +97,7 @@ import type {
   LogLevel,
   ModelAuthStatusResult,
   ModelCatalogEntry,
+  ModelsApiKeysStatusResult,
   PresenceEntry,
   ChannelsStatusSnapshot,
   SessionCompactionCheckpoint,
@@ -487,6 +488,12 @@ export class OpenClawApp extends LitElement {
   @state() modelAuthStatusLoading = false;
   @state() modelAuthStatusResult: ModelAuthStatusResult | null = null;
   @state() modelAuthStatusError: string | null = null;
+
+  @state() providerApiKeyStatus: ModelsApiKeysStatusResult | null = null;
+  @state() providerApiKeyStatusLoading = false;
+  @state() providerApiKeyStatusError: string | null = null;
+  @state() providerApiKeySaving: Record<string, boolean> = {};
+  @state() providerApiKeyErrors: Record<string, string | null> = {};
 
   @state() debugLoading = false;
   @state() debugStatus: StatusSummary | null = null;

@@ -99,6 +99,11 @@ import { loadLogs } from "./controllers/logs.ts";
 import { loadNodes } from "./controllers/nodes.ts";
 import { loadPresence } from "./controllers/presence.ts";
 import {
+  loadProviderApiKeyStatusState,
+  saveProviderApiKey,
+  saveProviderBaseUrl,
+} from "./controllers/providers.ts";
+import {
   branchSessionFromCheckpoint,
   deleteSessionsAndRefresh,
   loadSessions,
@@ -349,6 +354,7 @@ const INFRASTRUCTURE_SECTION_KEYS = [
 ] as const;
 const AI_AGENTS_SECTION_KEYS = [
   "agents",
+  "__providers__",
   "models",
   "skills",
   "tools",
@@ -494,6 +500,37 @@ function extractQuickSettingsChannels(state: AppViewState): QuickSettingsChannel
 }
 
 function extractQuickSettingsApiKeys(state: AppViewState): QuickSettingsApiKey[] {
+  // Preferred source: live status from gateway's models.apiKeys.status RPC.
+  // This reflects credentials + .env + openclaw.json fallbacks uniformly,
+  // so the Quick Settings card stays accurate even when keys live in the
+  // new credentials store rather than env.vars.
+  const snapshot = state.providerApiKeyStatus;
+  if (snapshot && snapshot.providers.length > 0) {
+    // Take all providers the gateway knows about, not just the hard-coded
+    // KNOWN_PROVIDER_KEYS whitelist — otherwise newer providers (e.g. Qwen,
+    // DeepSeek, Moonshot) configured in the Providers & API Keys panel would
+    // never show up in the Quick Settings "API Keys" card.
+    const labelOverrides = new Map(
+      KNOWN_PROVIDER_KEYS.map(({ provider, label }) => [provider.toLowerCase(), label]),
+    );
+    return snapshot.providers.map((row) => {
+      const label =
+        labelOverrides.get(row.provider.toLowerCase()) ??
+        (row.displayName && row.displayName.trim().length > 0
+          ? row.displayName
+          : formatQuickSettingsLabel(row.provider));
+      return {
+        provider: row.provider,
+        label,
+        isSet: row.isSet,
+        ...(row.masked ? { masked: row.masked } : {}),
+      };
+    });
+  }
+
+  // Fallback: peek at env vars in the form snapshot. This is the
+  // pre-providers-section behavior and keeps the card populated before the
+  // status RPC has responded (or when the gateway is offline).
   const config = state.configForm ?? state.configSnapshot?.config;
   const env = config && typeof config === "object" ? config.env : null;
   const envObj = env && typeof env === "object" ? (env as Record<string, unknown>) : {};
@@ -681,6 +718,13 @@ export function renderApp(state: AppViewState) {
   const cronNext = state.cronStatus?.nextWakeAtMs ?? null;
   const chatDisabledReason = state.connected ? null : t("chat.disconnected");
   const isChat = state.tab === "chat";
+  // The chat-model picker filters its options by `providerApiKeyStatus`
+  // (only providers with a configured API key remain). Make sure that
+  // snapshot is loaded once we land on the chat tab. The controller has
+  // its own re-entry guard, so calling on every render tick is safe.
+  if (isChat && state.providerApiKeyStatus === null && !state.providerApiKeyStatusLoading) {
+    void loadProviderApiKeyStatusState(state).then(() => requestHostUpdate?.());
+  }
   const chatFocus = isChat && (state.settings.chatFocusMode || state.onboarding);
   const navDrawerOpen = state.navDrawerOpen && !chatFocus && !state.onboarding;
   const navCollapsed = state.settings.navCollapsed && !navDrawerOpen;
@@ -883,6 +927,20 @@ export function renderApp(state: AppViewState) {
     assistantName: state.assistantName,
     configPath: state.configSnapshot?.path ?? null,
     rawAvailable: typeof state.configSnapshot?.raw === "string",
+    providerApiKeyStatus: state.providerApiKeyStatus,
+    providerApiKeyStatusLoading: state.providerApiKeyStatusLoading,
+    providerApiKeyStatusError: state.providerApiKeyStatusError,
+    providerApiKeySaving: state.providerApiKeySaving,
+    providerApiKeyErrors: state.providerApiKeyErrors,
+    onProvidersReload: () => {
+      void loadProviderApiKeyStatusState(state);
+    },
+    onProviderApiKeySave: (provider: string, apiKey: string | null) => {
+      void saveProviderApiKey(state, { provider, apiKey });
+    },
+    onProviderBaseUrlSave: (provider: string, baseUrl: string | null) => {
+      void saveProviderBaseUrl(state, { provider, baseUrl });
+    },
   } satisfies Omit<
     ConfigProps,
     | "formMode"
@@ -939,6 +997,15 @@ export function renderApp(state: AppViewState) {
       case "config": {
         // Quick Settings mode — opinionated card layout
         if (state.configSettingsMode === "quick") {
+          // Ensure the "API Keys" card reflects credentials saved via the
+          // new Providers & API Keys panel (credentials store, not env).
+          // `extractQuickSettingsApiKeys` only falls back to env scanning
+          // when `providerApiKeyStatus` is null/empty, so kick off a
+          // background load on first render. The controller has its own
+          // re-entry guard, so it's safe to call on every render tick.
+          if (state.providerApiKeyStatus === null && !state.providerApiKeyStatusLoading) {
+            void loadProviderApiKeyStatusState(state).then(() => requestHostUpdate?.());
+          }
           const configObj = state.configForm ?? state.configSnapshot?.config ?? {};
           const agentsDefaults = ((configObj.agents as Record<string, unknown> | undefined)
             ?.defaults ?? {}) as Record<string, unknown>;
@@ -987,9 +1054,18 @@ export function renderApp(state: AppViewState) {
             },
             apiKeys: extractQuickSettingsApiKeys(state),
             onApiKeyChange: () => {
-              state.configSettingsMode = "advanced";
-              state.configActiveSection = "env";
+              // API Keys live under the "AI & Agents" scoped tab, where our
+              // virtual __providers__ section renders the per-provider cards.
+              // Jumping there (rather than the main config tab) keeps the
+              // routing consistent with Channels/Appearance/etc.
+              state.tab = "aiAgents" as import("./navigation.ts").Tab;
+              state.aiAgentsActiveSection = "__providers__";
+              state.aiAgentsActiveSubsection = null;
               requestHostUpdate?.();
+              // Fire-and-forget: populate the Providers section in the
+              // background. Errors are surfaced inside the section itself
+              // via providerApiKeyStatusError, not through a toast.
+              void loadProviderApiKeyStatusState(state);
             },
             automation: {
               cronJobCount: state.cronJobs?.length ?? 0,
@@ -1148,6 +1224,7 @@ export function renderApp(state: AppViewState) {
           onSubsectionChange: (section) => (state.aiAgentsActiveSubsection = section),
           navRootLabel: "AI & Agents",
           includeSections: [...AI_AGENTS_SECTION_KEYS],
+          includeVirtualSections: true,
         });
       default:
         return nothing;
@@ -2537,3 +2614,8 @@ export function renderApp(state: AppViewState) {
     </div>
   `;
 }
+
+// Internal exports for unit testing. Do not import from production code.
+export const __testInternals = {
+  extractQuickSettingsApiKeys,
+};

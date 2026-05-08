@@ -192,32 +192,22 @@ export function renderChatThinkingSelect(state: AppViewState) {
   const busy =
     state.chatLoading || state.chatSending || Boolean(state.chatRunId) || state.chatStream !== null;
   const disabled = !state.connected || busy || !state.client;
-  const selectedLabel =
-    currentOverride === ""
-      ? defaultLabel
-      : (options.find((entry) => entry.value === currentOverride)?.label ?? currentOverride);
   return html`
     <label class="field chat-controls__session chat-controls__thinking-select">
-      <select
+      <chat-model-picker
         data-chat-thinking-select="true"
-        aria-label="Chat thinking level"
-        title=${selectedLabel}
+        aria-label-text="Chat thinking level"
+        .options=${options}
+        .value=${currentOverride}
+        .defaultLabel=${defaultLabel}
+        .groupByProvider=${false}
+        .showSearch=${false}
         ?disabled=${disabled}
-        @change=${async (e: Event) => {
-          const next = (e.target as HTMLSelectElement).value.trim();
+        @change=${async (e: CustomEvent<{ value: string }>) => {
+          const next = (e.detail?.value ?? "").trim();
           await switchChatThinkingLevel(state, next);
         }}
-      >
-        <option value="" ?selected=${currentOverride === ""}>${defaultLabel}</option>
-        ${repeat(
-          options,
-          (entry) => entry.value,
-          (entry) =>
-            html`<option value=${entry.value} ?selected=${entry.value === currentOverride}>
-              ${entry.label}
-            </option>`,
-        )}
-      </select>
+      ></chat-model-picker>
     </label>
   `;
 }

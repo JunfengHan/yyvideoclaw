@@ -18,6 +18,7 @@ import { doctorHandlers } from "./server-methods/doctor.js";
 import { execApprovalsHandlers } from "./server-methods/exec-approvals.js";
 import { healthHandlers } from "./server-methods/health.js";
 import { logsHandlers } from "./server-methods/logs.js";
+import { modelsApiKeysHandlers } from "./server-methods/models-api-keys.js";
 import { modelsAuthStatusHandlers } from "./server-methods/models-auth-status.js";
 import { modelsHandlers } from "./server-methods/models.js";
 import { nodePendingHandlers } from "./server-methods/nodes-pending.js";
@@ -84,6 +85,7 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...webHandlers,
   ...modelsHandlers,
   ...modelsAuthStatusHandlers,
+  ...modelsApiKeysHandlers,
   ...configHandlers,
   ...wizardHandlers,
   ...talkHandlers,

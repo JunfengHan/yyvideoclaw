@@ -54,6 +54,8 @@ const BASE_METHODS = [
   "commands.list",
   "models.list",
   "models.authStatus",
+  "models.apiKeys.status",
+  "models.apiKeys.set",
   "tools.catalog",
   "tools.effective",
   "agents.list",
