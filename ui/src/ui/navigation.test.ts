@@ -211,15 +211,19 @@ describe("TAB_GROUPS", () => {
     expect(uniqueTabs.size).toBe(allTabs.length);
   });
 
-  it("registers videoStudio at the tail of the `yyVideo` group", () => {
+  it("registers remotionStudio at the tail of the `yyVideo` group", () => {
     // videoStudio used to live under `agent` but was relocated next to
     // remoteTerminal so the YYVIDEO surface owns the whole pipeline
-    // (server provisioning + Pixelle authoring).
+    // (server provisioning + Pixelle authoring + Remotion programmatic
+    // templates). remotionStudio was appended last because it's the
+    // newest surface in the group.
     const yyVideoGroup = TAB_GROUPS.find((g) => g.label === "yyVideo");
     expect(yyVideoGroup).toBeDefined();
-    expect(yyVideoGroup?.tabs.at(-1)).toBe("videoStudio");
+    expect(yyVideoGroup?.tabs).toContain("videoStudio");
+    expect(yyVideoGroup?.tabs.at(-1)).toBe("remotionStudio");
     const agentGroup = TAB_GROUPS.find((g) => g.label === "agent");
     expect(agentGroup?.tabs).not.toContain("videoStudio");
+    expect(agentGroup?.tabs).not.toContain("remotionStudio");
   });
 
   it("registers remoteTerminal as a top-level entry under yyVideo", () => {

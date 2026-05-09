@@ -1,0 +1,12 @@
+{
+  "name": "yyvideoclaw-remotion-starter-pack",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Starter Remotion compositions shipped with yyvideoclaw. Used by the Remotion Studio UI tab. Depends on the repo-root node_modules (React + Remotion hoisted there).",
+  "type": "module",
+  "dependencies": {
+    "react": "*",
+    "react-dom": "*",
+    "remotion": "*"
+  }
+}

@@ -77,14 +77,26 @@
       }
     }
   },
-  "plugins": {
-    "entries": {
-      "qwen": {
-        "enabled": true
-      },
-      "openai": {
-        "enabled": true
-      }
+    "plugins": {
+        "entries": {
+            "qwen": {
+                "enabled": true
+            },
+            "openai": {
+                "enabled": true
+            },
+            "remotion": {
+                "enabled": true,
+                "config": {
+                    "templateRoots": [
+                        "/Users/johnhan/Desktop/myself/yyvideoclaw/remotion-templates/starter-pack",
+                        "/Users/johnhan/Desktop/myself/yyvideoclaw/extensions/remotion/test/e2e/fixtures/minimal-project"
+                    ],
+                    "jobTimeoutMs": 300000,
+                    "maxOutputBytes": 52428800,
+                    "allowNetwork": false
+                }
+            }
+        }
     }
-  }
 }

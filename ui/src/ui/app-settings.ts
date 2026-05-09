@@ -6,7 +6,9 @@ import {
   stopLogsPolling,
   startDebugPolling,
   stopDebugPolling,
+  startRemotionStudioPolling,
   startVideoStudioPolling,
+  stopRemotionStudioPolling,
   stopVideoStudioPolling,
 } from "./app-polling.ts";
 import { scheduleChatScroll, scheduleLogsScroll } from "./app-scroll.ts";
@@ -399,6 +401,11 @@ export async function refreshActiveTab(host: SettingsHost) {
       await loadLogs(app, { reset: true });
       scheduleLogsScroll(host as unknown as Parameters<typeof scheduleLogsScroll>[0], true);
       return;
+    case "remoteTerminal":
+    case "videoStudio":
+    case "remotionStudio":
+      // These tabs run their own polling/refresh loops outside of refreshActiveTab.
+      return;
   }
 }
 
@@ -552,6 +559,9 @@ function applyTabSelection(
   );
   (next === "videoStudio" ? startVideoStudioPolling : stopVideoStudioPolling)(
     host as unknown as Parameters<typeof startVideoStudioPolling>[0],
+  );
+  (next === "remotionStudio" ? startRemotionStudioPolling : stopRemotionStudioPolling)(
+    host as unknown as Parameters<typeof startRemotionStudioPolling>[0],
   );
 
   if (options.refreshPolicy === "always" || host.connected) {

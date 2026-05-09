@@ -1,0 +1,25 @@
+{
+  "name": "@openclaw/remotion-plugin",
+  "version": "2026.5.9",
+  "private": true,
+  "description": "OpenClaw Remotion plugin — renders videos/stills via @remotion/bundler + @remotion/renderer through agent tools",
+  "type": "module",
+  "dependencies": {
+    "@remotion/bundler": "4.0.290",
+    "@remotion/renderer": "4.0.290",
+    "remotion": "4.0.290",
+    "typebox": "1.1.28"
+  },
+  "devDependencies": {
+    "@openclaw/plugin-sdk": "workspace:*"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts",
+      "./src/render-worker.ts"
+    ],
+    "bundle": {
+      "stageRuntimeDependencies": true
+    }
+  }
+}

@@ -540,6 +540,38 @@ export class OpenClawApp extends LitElement {
   @state() videoStudioHistoryExpanded = true;
   videoStudioTaskPollTimer: number | null = null;
 
+  // ---- Remotion Studio ------------------------------------------------------
+  @state() remotionStatus: import("./controllers/remotion-studio.ts").RemotionStatusWire | null =
+    null;
+  @state() remotionStatusError: string | null = null;
+  @state()
+  remotionTemplates: readonly import("./controllers/remotion-studio.ts").RemotionTemplateWire[] =
+    [];
+  @state() remotionTemplatesErrors: ReadonlyArray<{ entryPoint: string; reason: string }> = [];
+  @state() remotionTemplatesLoading = false;
+  @state() remotionTemplatesError: string | null = null;
+  @state() remotionDraft: import("./controllers/remotion-studio.ts").RemotionStudioDraft = {
+    entryPoint: null,
+    compositionId: null,
+    kind: "video",
+    imageFormat: "png",
+    codec: "h264",
+    frame: null,
+    inputPropsJson: "{}",
+    mode: "form",
+  };
+  @state() remotionCurrentJob:
+    | import("./controllers/remotion-studio.ts").RemotionJobResponseWire
+    | null = null;
+  @state() remotionSubmitting = false;
+  @state() remotionSubmitError: string | null = null;
+  @state()
+  remotionHistory: readonly import("./controllers/remotion-studio.ts").RemotionJobResponseWire[] =
+    [];
+  @state() remotionPreviewBlobUrl: string | null = null;
+  /** Active polling intervals, by jobId. Cleared on disconnect / job select. */
+  remotionPollHandles: Map<string, ReturnType<typeof setInterval>> = new Map();
+
   client: GatewayBrowserClient | null = null;
   private chatScrollFrame: number | null = null;
   private chatScrollTimeout: number | null = null;

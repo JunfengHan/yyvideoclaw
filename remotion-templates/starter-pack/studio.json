@@ -1,0 +1,114 @@
+{
+  "compositions": {
+    "TitleCard": {
+      "label": "Title Card",
+      "description": "Animated headline + subtitle intro with accent bar. 1920×1080, 5s.",
+      "inputPropsSchema": {
+        "type": "object",
+        "required": ["title", "subtitle", "tint", "background"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Main headline, big & bold.",
+            "default": "yyvideoclaw"
+          },
+          "subtitle": {
+            "type": "string",
+            "description": "Tagline shown beneath the title.",
+            "default": "Local-first AI video studio"
+          },
+          "tint": {
+            "type": "string",
+            "description": "Accent colour (hex like #ef4444).",
+            "default": "#ef4444"
+          },
+          "background": {
+            "type": "string",
+            "description": "Backdrop colour (hex).",
+            "default": "#0f172a"
+          }
+        }
+      }
+    },
+    "Countdown": {
+      "label": "Countdown",
+      "description": "Square N→0 countdown with spring pulse each second. 1080×1080, 5s.",
+      "inputPropsSchema": {
+        "type": "object",
+        "required": ["start", "tint", "background"],
+        "properties": {
+          "start": {
+            "type": "integer",
+            "description": "Starting number (counts down to 0).",
+            "default": 5
+          },
+          "tint": {
+            "type": "string",
+            "description": "Ring + accent colour (hex).",
+            "default": "#22c55e"
+          },
+          "background": {
+            "type": "string",
+            "description": "Backdrop colour (hex).",
+            "default": "#111827"
+          }
+        }
+      }
+    },
+    "LowerThird": {
+      "label": "Lower Third",
+      "description": "News-style name + role banner. Slides in from the left. 1920×1080, 3s.",
+      "inputPropsSchema": {
+        "type": "object",
+        "required": ["name", "role", "accent"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Person's name (shown large).",
+            "default": "Jane Doe"
+          },
+          "role": {
+            "type": "string",
+            "description": "Role / title (shown small, uppercase).",
+            "default": "Lead Engineer"
+          },
+          "accent": {
+            "type": "string",
+            "description": "Left bar + role colour (hex).",
+            "default": "#3b82f6"
+          }
+        }
+      }
+    },
+    "SocialCard": {
+      "label": "Social Card",
+      "description": "9:16 vertical promo card for Reels / TikTok / Stories. 1080×1920, 4s.",
+      "inputPropsSchema": {
+        "type": "object",
+        "required": ["headline", "body", "tint", "background"],
+        "properties": {
+          "headline": {
+            "type": "string",
+            "description": "Big underlined headline.",
+            "default": "Ship faster."
+          },
+          "body": {
+            "type": "string",
+            "description": "Supporting copy under the headline.",
+            "default": "Programmatic video, rendered locally."
+          },
+          "tint": {
+            "type": "string",
+            "description": "Accent colour (hex).",
+            "default": "#f97316"
+          },
+          "background": {
+            "type": "string",
+            "description": "Backdrop colour (hex).",
+            "default": "#111827"
+          }
+        }
+      }
+    }
+  }
+}

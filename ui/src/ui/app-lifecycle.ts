@@ -7,7 +7,9 @@ import {
   stopNodesPolling,
   startDebugPolling,
   stopDebugPolling,
+  startRemotionStudioPolling,
   startVideoStudioPolling,
+  stopRemotionStudioPolling,
   stopVideoStudioPolling,
 } from "./app-polling.ts";
 import { observeTopbar, scheduleChatScroll, scheduleLogsScroll } from "./app-scroll.ts";
@@ -94,6 +96,9 @@ export function handleConnected(host: LifecycleHost) {
   if (host.tab === "videoStudio") {
     startVideoStudioPolling(host as unknown as Parameters<typeof startVideoStudioPolling>[0]);
   }
+  if (host.tab === "remotionStudio") {
+    startRemotionStudioPolling(host as unknown as Parameters<typeof startRemotionStudioPolling>[0]);
+  }
 }
 
 export function handleFirstUpdated(host: LifecycleHost) {
@@ -111,6 +116,7 @@ export function handleDisconnected(host: LifecycleHost) {
   stopLogsPolling(host as unknown as Parameters<typeof stopLogsPolling>[0]);
   stopDebugPolling(host as unknown as Parameters<typeof stopDebugPolling>[0]);
   stopVideoStudioPolling(host as unknown as Parameters<typeof stopVideoStudioPolling>[0]);
+  stopRemotionStudioPolling(host as unknown as Parameters<typeof stopRemotionStudioPolling>[0]);
   host.realtimeTalkSession?.stop();
   host.realtimeTalkSession = null;
   host.realtimeTalkActive = false;

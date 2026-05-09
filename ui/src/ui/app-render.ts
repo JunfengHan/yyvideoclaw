@@ -104,6 +104,18 @@ import {
   saveProviderBaseUrl,
 } from "./controllers/providers.ts";
 import {
+  fetchRemotionArtifactBlob,
+  loadRemotionHistory,
+  loadRemotionTemplates,
+  startRemotionJobPolling,
+  stopAllRemotionPolling,
+  submitRemotionRender,
+  tryParseInputPropsJson,
+  updateRemotionDraft,
+  type RemotionHttpDeps,
+  type RemotionJobResponseWire,
+} from "./controllers/remotion-studio.ts";
+import {
   branchSessionFromCheckpoint,
   deleteSessionsAndRefresh,
   loadSessions,
@@ -165,6 +177,7 @@ import { renderGatewayUrlConfirmation } from "./views/gateway-url-confirmation.t
 import { renderLoginGate } from "./views/login-gate.ts";
 import { renderOverview } from "./views/overview.ts";
 import { renderRemoteTerminalView } from "./views/remote-terminal-view.ts";
+import { renderRemotionStudioView } from "./views/remotion-studio-view.ts";
 import { renderVideoStudioView } from "./views/video-studio-view.ts";
 
 // Lazy-loaded view modules – deferred so the initial bundle stays small.
@@ -519,12 +532,10 @@ function extractQuickSettingsApiKeys(state: AppViewState): QuickSettingsApiKey[]
         (row.displayName && row.displayName.trim().length > 0
           ? row.displayName
           : formatQuickSettingsLabel(row.provider));
-      return {
-        provider: row.provider,
-        label,
-        isSet: row.isSet,
-        ...(row.masked ? { masked: row.masked } : {}),
-      };
+      return Object.assign(
+        { provider: row.provider, label, isSet: row.isSet },
+        row.masked ? { masked: row.masked } : {},
+      );
     });
   }
 
@@ -2578,7 +2589,9 @@ export function renderApp(state: AppViewState) {
                 },
                 onDownload: (task) => {
                   const url = task.output?.videoUrl;
-                  if (!url) return;
+                  if (!url) {
+                    return;
+                  }
                   // Simple same-origin download trigger; the URL is proxied
                   // through /video-studio/proxy so auth is carried by the
                   // existing session cookie / bearer.
@@ -2594,7 +2607,9 @@ export function renderApp(state: AppViewState) {
                 },
                 onCopyLink: (task) => {
                   const url = task.output?.videoUrl;
-                  if (!url) return;
+                  if (!url) {
+                    return;
+                  }
                   void navigator.clipboard?.writeText(url).catch(() => {
                     /* clipboard blocked — swallow silently */
                   });
@@ -2609,6 +2624,73 @@ export function renderApp(state: AppViewState) {
               },
             })
           : nothing}
+        ${state.tab === "remotionStudio"
+          ? (() => {
+              // Local closure: ensures the helpers below get a non-undefined
+              // host-update fn even when the host doesn't expose `requestUpdate`
+              // (test harness, SSR, etc).
+              const triggerUpdate: () => void = () => {
+                requestHostUpdate?.();
+              };
+              return renderRemotionStudioView({
+                status: state.remotionStatus,
+                statusError: state.remotionStatusError,
+                templates: state.remotionTemplates,
+                templatesErrors: state.remotionTemplatesErrors,
+                templatesLoading: state.remotionTemplatesLoading,
+                templatesError: state.remotionTemplatesError,
+                draft: state.remotionDraft,
+                currentJob: state.remotionCurrentJob,
+                history: state.remotionHistory,
+                submitting: state.remotionSubmitting,
+                submitError: state.remotionSubmitError,
+                previewBlobUrl: state.remotionPreviewBlobUrl,
+                basePath: state.basePath,
+                callbacks: {
+                  onSelectComposition: (entryPoint, compositionId) => {
+                    updateRemotionDraft(state, { entryPoint, compositionId });
+                    // Reset preview when switching template/composition.
+                    if (state.remotionPreviewBlobUrl) {
+                      URL.revokeObjectURL(state.remotionPreviewBlobUrl);
+                      state.remotionPreviewBlobUrl = null;
+                    }
+                    state.remotionCurrentJob = null;
+                    state.remotionSubmitError = null;
+                    triggerUpdate();
+                  },
+                  onDraftChange: (patch) => {
+                    updateRemotionDraft(state, patch);
+                    triggerUpdate();
+                  },
+                  onSubmit: () => {
+                    void handleRemotionSubmit(state, triggerUpdate);
+                  },
+                  onSelectHistory: (jobId) => {
+                    const found = state.remotionHistory.find(
+                      (e: RemotionJobResponseWire) => e.job.jobId === jobId,
+                    );
+                    if (found) {
+                      if (state.remotionPreviewBlobUrl) {
+                        URL.revokeObjectURL(state.remotionPreviewBlobUrl);
+                        state.remotionPreviewBlobUrl = null;
+                      }
+                      state.remotionCurrentJob = found;
+                      void loadRemotionPreviewBlob(state, found, triggerUpdate);
+                      triggerUpdate();
+                    }
+                  },
+                  onRefreshTemplates: () => {
+                    void loadRemotionTemplatesForState(state, triggerUpdate);
+                  },
+                  onCopyOutputPath: (path) => {
+                    void navigator.clipboard?.writeText(path).catch(() => {
+                      /* clipboard blocked — swallow silently */
+                    });
+                  },
+                },
+              });
+            })()
+          : nothing}
       </main>
       ${renderExecApprovalPrompt(state)} ${renderGatewayUrlConfirmation(state)} ${nothing}
     </div>
@@ -2619,3 +2701,143 @@ export function renderApp(state: AppViewState) {
 export const __testInternals = {
   extractQuickSettingsApiKeys,
 };
+
+// ---------------------------------------------------------------------------
+// Remotion Studio glue. Kept inside app-render.ts (where the callbacks are
+// composed) instead of bloating controllers/remotion-studio.ts because these
+// helpers reach into AppViewState and trigger host re-renders, which is the
+// shape of every other dispatch closure in this file.
+// ---------------------------------------------------------------------------
+
+function buildRemotionHttpDeps(state: AppViewState): RemotionHttpDeps {
+  // Mirrors the pattern used by `controllers/video-studio.ts` callers — we
+  // forward whatever auth/identity slice the host already has into the
+  // shared helper. The controller falls back to anonymous when none of the
+  // candidates resolve.
+  const s = state as AppViewState & {
+    hello?: { auth?: { deviceToken?: string | null } | null } | null;
+    settings?: { token?: string | null } | null;
+    password?: string | null;
+  };
+  return {
+    basePath: state.basePath,
+    hello: s.hello ?? null,
+    settings: s.settings ?? null,
+    password: s.password ?? null,
+  };
+}
+
+async function loadRemotionTemplatesForState(
+  state: AppViewState,
+  requestUpdate: () => void,
+): Promise<void> {
+  state.remotionTemplatesLoading = true;
+  state.remotionTemplatesError = null;
+  requestUpdate();
+  try {
+    const res = await loadRemotionTemplates(buildRemotionHttpDeps(state));
+    state.remotionTemplates = res.templates;
+    state.remotionTemplatesErrors = res.errors;
+  } catch (err) {
+    state.remotionTemplatesError = err instanceof Error ? err.message : String(err);
+  } finally {
+    state.remotionTemplatesLoading = false;
+    requestUpdate();
+  }
+}
+
+async function handleRemotionSubmit(state: AppViewState, requestUpdate: () => void): Promise<void> {
+  const draft = state.remotionDraft;
+  if (!draft.entryPoint || !draft.compositionId) {
+    return;
+  }
+  const parsed = tryParseInputPropsJson(draft.inputPropsJson);
+  if (!parsed.ok) {
+    state.remotionSubmitError = parsed.error;
+    requestUpdate();
+    return;
+  }
+  state.remotionSubmitting = true;
+  state.remotionSubmitError = null;
+  requestUpdate();
+  try {
+    const deps = buildRemotionHttpDeps(state);
+    const job = await submitRemotionRender(deps, {
+      kind: draft.kind,
+      entryPoint: draft.entryPoint,
+      compositionId: draft.compositionId,
+      inputProps: parsed.value,
+      ...(draft.kind === "video" ? { codec: draft.codec } : {}),
+      ...(draft.kind === "still"
+        ? {
+            imageFormat: draft.imageFormat,
+            ...(draft.frame != null ? { frame: draft.frame } : {}),
+          }
+        : {}),
+    });
+    state.remotionCurrentJob = job;
+    if (state.remotionPreviewBlobUrl) {
+      URL.revokeObjectURL(state.remotionPreviewBlobUrl);
+      state.remotionPreviewBlobUrl = null;
+    }
+    requestUpdate();
+    // Start polling until terminal.
+    const handle = startRemotionJobPolling(
+      deps,
+      job.job.jobId,
+      {
+        onUpdate: (snap) => {
+          state.remotionCurrentJob = snap;
+          requestUpdate();
+        },
+        onTerminal: (snap) => {
+          state.remotionPollHandles.delete(snap.job.jobId);
+          if (snap.job.status === "done") {
+            void loadRemotionPreviewBlob(state, snap, requestUpdate);
+          }
+          // Refresh history in the background.
+          void loadRemotionHistory(deps).then((res) => {
+            state.remotionHistory = res.jobs;
+            requestUpdate();
+          });
+        },
+      },
+      750,
+    );
+    state.remotionPollHandles.set(job.job.jobId, handle);
+  } catch (err) {
+    state.remotionSubmitError = err instanceof Error ? err.message : String(err);
+  } finally {
+    state.remotionSubmitting = false;
+    requestUpdate();
+  }
+}
+
+async function loadRemotionPreviewBlob(
+  state: AppViewState,
+  job: RemotionJobResponseWire,
+  requestUpdate: () => void,
+): Promise<void> {
+  if (job.job.status !== "done") {
+    return;
+  }
+  try {
+    const blob = await fetchRemotionArtifactBlob(buildRemotionHttpDeps(state), job.job.jobId);
+    // If the user navigated away to a different job in the meantime, drop
+    // the result rather than show stale frames.
+    if (state.remotionCurrentJob?.job.jobId !== job.job.jobId) {
+      return;
+    }
+    if (state.remotionPreviewBlobUrl) {
+      URL.revokeObjectURL(state.remotionPreviewBlobUrl);
+    }
+    state.remotionPreviewBlobUrl = URL.createObjectURL(blob);
+    requestUpdate();
+  } catch {
+    /* preview is best-effort; the path / open-externally affordances stay */
+  }
+}
+
+// Re-export so app-lifecycle.ts can clean up on disconnect without pulling
+// the controller in directly (avoids duplicate paths in tests).
+export { stopAllRemotionPolling };

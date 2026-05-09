@@ -1,0 +1,18 @@
+{
+  "compositions": {
+    "HelloWorld": {
+      "label": "Hello World",
+      "description": "Simple gradient title card with a tunable tint color.",
+      "inputPropsSchema": {
+        "type": "object",
+        "properties": {
+          "tint": {
+            "type": "string",
+            "description": "Hex color like #3b82f6",
+            "default": "#3b82f6"
+          }
+        }
+      }
+    }
+  }
+}

@@ -5,6 +5,13 @@ import { loadLogs } from "./controllers/logs.ts";
 import type { NodesState } from "./controllers/nodes.ts";
 import { loadNodes } from "./controllers/nodes.ts";
 import {
+  loadRemotionHistory,
+  loadRemotionStatus,
+  loadRemotionTemplates,
+  type RemotionHttpDeps,
+  type RemotionStudioControllerState,
+} from "./controllers/remotion-studio.ts";
+import {
   ensureHostLanguageSync,
   loadVideoStudioStatusState,
   type VideoStudioControllerState,
@@ -16,6 +23,7 @@ type PollingHost = {
   logsPollInterval: number | null;
   debugPollInterval: number | null;
   videoStudioPollTimer?: number | null;
+  remotionStudioPollTimer?: number | null;
   tab: string;
 };
 
@@ -109,4 +117,76 @@ export function stopVideoStudioPolling(host: PollingHost) {
   }
   clearInterval(host.videoStudioPollTimer);
   host.videoStudioPollTimer = null;
+}
+
+// ---------------------------------------------------------------------------
+// Remotion Studio polling.
+//
+// Polls /remotion/status (cheap; just a counter snapshot) and refreshes the
+// templates + history every cycle so users see new compositions if they edit
+// the template source. Keep the interval relatively long (4s) — Remotion
+// jobs themselves have their own per-job polling loop driven by the view's
+// onSubmit closure.
+// ---------------------------------------------------------------------------
+
+export function startRemotionStudioPolling(
+  host: PollingHost &
+    RemotionStudioControllerState & {
+      basePath: string;
+      remotionPreviewBlobUrl?: string | null;
+    } & RemotionHttpDeps,
+) {
+  if (host.remotionStudioPollTimer != null) {
+    return;
+  }
+  const tick = async () => {
+    if (host.tab !== "remotionStudio") {
+      return;
+    }
+    try {
+      host.remotionStatus = await loadRemotionStatus(host);
+      host.remotionStatusError = null;
+    } catch (err) {
+      host.remotionStatusError = err instanceof Error ? err.message : String(err);
+    }
+    try {
+      const res = await loadRemotionTemplates(host);
+      host.remotionTemplates = res.templates;
+      host.remotionTemplatesErrors = res.errors;
+      host.remotionTemplatesError = null;
+    } catch (err) {
+      host.remotionTemplatesError = err instanceof Error ? err.message : String(err);
+    }
+    try {
+      const res = await loadRemotionHistory(host);
+      host.remotionHistory = res.jobs;
+    } catch {
+      /* history is best-effort */
+    }
+  };
+  void tick();
+  host.remotionStudioPollTimer = window.setInterval(() => void tick(), 4000);
+}
+
+export function stopRemotionStudioPolling(
+  host: PollingHost & {
+    remotionPreviewBlobUrl?: string | null;
+    remotionPollHandles?: Map<string, ReturnType<typeof setInterval>>;
+  },
+) {
+  if (host.remotionStudioPollTimer != null) {
+    clearInterval(host.remotionStudioPollTimer);
+    host.remotionStudioPollTimer = null;
+  }
+  // Also cancel any per-job polling and revoke the blob URL.
+  if (host.remotionPollHandles) {
+    for (const handle of host.remotionPollHandles.values()) {
+      clearInterval(handle);
+    }
+    host.remotionPollHandles.clear();
+  }
+  if (host.remotionPreviewBlobUrl) {
+    URL.revokeObjectURL(host.remotionPreviewBlobUrl);
+    host.remotionPreviewBlobUrl = null;
+  }
 }

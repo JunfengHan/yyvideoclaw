@@ -170,6 +170,7 @@ export const id: TranslationMap = {
     logs: "Log",
     dreams: "Mimpi",
     videoStudio: "Video Studio",
+    remotionStudio: "Remotion Studio",
   },
   subtitles: {
     remoteTerminal: "Saved SSH profiles and an interactive browser terminal.",
@@ -193,6 +194,7 @@ export const id: TranslationMap = {
     logs: "Log Gateway langsung.",
     dreams: "Konsolidasi memori saat tidur.",
     videoStudio: "Topic-to-video studio powered by the embedded Pixelle backend.",
+    remotionStudio: "React-based programmatic video templates rendered locally with Remotion.",
   },
   remoteTerminal: {
     eyebrow: "yyVideo · Remote servers",
@@ -1075,6 +1077,77 @@ export const id: TranslationMap = {
       systemEventTextRequired: "Teks peristiwa sistem wajib diisi.",
       agentMessageRequiredShort: "Pesan agen wajib diisi.",
       nameRequiredShort: "Nama wajib diisi.",
+    },
+  },
+  remotionStudio: {
+    eyebrow: "yyVideo · Remotion",
+    heading: "Remotion Studio",
+    description:
+      "Render React-based video templates with the local Remotion bundler. Templates are loaded from the directories declared in plugins.entries.remotion.config.templateRoots.",
+    state: {
+      disabled: "Remotion plugin is not enabled or not configured.",
+      disabledHint:
+        "Enable it in ~/.openclaw/openclaw.json under plugins.entries.remotion and restart the gateway.",
+      noTemplates: "No templates discovered in the configured roots.",
+      noTemplatesHint: "Each template root must contain a Remotion entry at <root>/src/index.ts.",
+      loadingTemplates: "Loading templates…",
+      loadFailed: "Failed to load templates.",
+    },
+    panes: {
+      templates: "Templates",
+      form: "Render",
+      preview: "Preview",
+      history: "History",
+    },
+    template: {
+      compositions: "Compositions",
+      composition: "Composition",
+      empty: "Pick a template on the left.",
+      sizeBadge: "{width}×{height} · {fps}fps · {duration}f",
+    },
+    form: {
+      schemaForm: "Form",
+      jsonMode: "JSON",
+      kindLabel: "Output",
+      kindVideo: "Video (mp4)",
+      kindStill: "Still frame",
+      codecLabel: "Codec",
+      imageFormatLabel: "Image format",
+      frameLabel: "Frame",
+      framePlaceholder: "Defaults to frame 0",
+      inputPropsLabel: "inputProps",
+      inputPropsPlaceholder: "{}",
+      submit: "Render",
+      submitting: "Rendering…",
+      formatJson: "Format JSON",
+      invalidJson: "Invalid JSON: {error}",
+      schemaTooComplex:
+        "Schema declares features beyond the supported subset; falling back to JSON.",
+    },
+    job: {
+      status: {
+        queued: "Queued",
+        running: "Running",
+        done: "Done",
+        error: "Error",
+        cancelled: "Cancelled",
+      },
+      durationLabel: "Duration",
+      sizeLabel: "Size",
+      mediaLibraryLabel: "Media library",
+      copyPath: "Copy path",
+      copyMediaPath: "Copy media-library path",
+    },
+    preview: {
+      empty: "Render a composition to preview it here.",
+      videoUnsupported: "Inline preview unavailable. Open the file from the path above.",
+    },
+    history: {
+      empty: "No recent jobs.",
+    },
+    errors: {
+      generic: "Something went wrong: {detail}",
+      submitFailed: "Failed to start render: {detail}",
     },
   },
 };

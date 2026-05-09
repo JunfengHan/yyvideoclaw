@@ -155,6 +155,18 @@ export default defineConfig(() => {
         // the SPA index for /video-studio/config/comfyui and we surface
         // a misleading "HTTP 404 Not Found" in the terminal log.
         "/video-studio/config/comfyui": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
+        // Remotion plugin HTTP routes (extensions/remotion/index.ts). Same
+        // pattern as /video-studio/*: only the concrete API subpaths are
+        // proxied — the bare `/remotion-studio` URL stays a SPA history
+        // route and falls back to index.html. Artifact streaming uses
+        // Range headers and large bodies, so keep `selfHandleResponse:false`
+        // (the http-proxy default) and don't add any rewriter that could
+        // break partial responses.
+        "/remotion/status": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
+        "/remotion/templates": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
+        "/remotion/render": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
+        "/remotion/history": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
+        "/remotion/jobs": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
         "/v1": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
         "/plugins": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
         "/remote-terminal/ws": gatewayProxy(gatewayTarget, devBearer, { ws: true }),

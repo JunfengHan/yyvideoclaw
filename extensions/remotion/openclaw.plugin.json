@@ -1,0 +1,46 @@
+{
+  "id": "remotion",
+  "enabledByDefault": false,
+  "contracts": {
+    "tools": ["remotion_list_compositions", "remotion_render_video", "remotion_render_still"]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "templateRoots": {
+        "type": "array",
+        "description": "Allowlist of absolute directories that may contain Remotion project entry points. Any entryPoint passed to tools MUST live inside one of these roots (after realpath resolution). Required to use the plugin — there is no implicit default.",
+        "items": { "type": "string" }
+      },
+      "outputDir": {
+        "type": "string",
+        "description": "Absolute directory where rendered artifacts are written. Defaults to ~/.openclaw/remotion/outputs."
+      },
+      "cacheDir": {
+        "type": "string",
+        "description": "Absolute directory used for the Remotion bundler webpack cache. Defaults to ~/.openclaw/remotion/cache."
+      },
+      "jobTimeoutMs": {
+        "type": "number",
+        "default": 600000,
+        "description": "Hard upper bound on a single render job in milliseconds (default: 10 minutes). The render worker is SIGKILLed after this elapses."
+      },
+      "maxOutputBytes": {
+        "type": "number",
+        "default": 524288000,
+        "description": "Maximum allowed output file size in bytes (default: 500 MiB). Outputs exceeding this are deleted and the job fails."
+      },
+      "allowNetwork": {
+        "type": "boolean",
+        "default": false,
+        "description": "If false (default), the headless Chromium launched by Remotion is configured to block all network requests. Enabling this allows fetching remote assets at render time."
+      },
+      "chromiumExecutablePath": {
+        "type": "string",
+        "description": "Override the Chromium executable used by Remotion. Defaults to the one bundled with @remotion/renderer."
+      }
+    },
+    "required": ["templateRoots"]
+  }
+}
