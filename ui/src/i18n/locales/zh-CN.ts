@@ -170,6 +170,7 @@ export const zh_CN: TranslationMap = {
     dreams: "梦境",
     videoStudio: "Pixelle-Video",
     remotionStudio: "Remotion Studio",
+    library: "资源库",
   },
   subtitles: {
     remoteTerminal: "已保存的 SSH 配置与可交互的浏览器终端。",
@@ -194,6 +195,7 @@ export const zh_CN: TranslationMap = {
     dreams: "睡眠时进行记忆巩固。",
     videoStudio: "本页面集成Pixelle-Video",
     remotionStudio: "在本地渲染基于 React 的可编程视频模板（Remotion）。",
+    library: "浏览所有来源的本地 AI 生成资源。",
   },
   remoteTerminal: {
     eyebrow: "yyVideo · 远程服务器",
@@ -1123,6 +1125,171 @@ export const zh_CN: TranslationMap = {
     errors: {
       generic: "发生错误：{detail}",
       submitFailed: "提交渲染失败：{detail}",
+    },
+  },
+  remotionAi: {
+    heading: "AI 创作",
+    state: {
+      idle: "空闲",
+    },
+    actions: {
+      collapse: "折叠",
+      expand: "展开",
+    },
+    form: {
+      promptLabel: "提示词",
+      promptPlaceholder:
+        "描述你希望 AI 编写的 Remotion 视频（例如：「3 秒标题卡，用渐变背景动画展示『Hello』」）。",
+      retryMaxLabel: "最多重试次数",
+      submit: "开始生成",
+      submitting: "生成中…",
+      cancel: "取消",
+      advancedShow: "▸ 高级",
+      advancedHide: "▾ 高级",
+      advancedHint: "这些参数有合理默认值，只有在反复校验失败时再调整。",
+      validation: {
+        promptRequired: "请先填写提示词。",
+      },
+    },
+    status: {
+      phase: "阶段",
+      retryCount: "已重试 {count} 次",
+      elapsed: "已用时 {seconds} 秒",
+      progressLabel: "任务进度",
+    },
+    phase: {
+      queued: "排队中",
+      workspace: "准备工作区",
+      skills: "加载技能",
+      agent: "代理思考中",
+      bundle: "打包项目",
+      select: "选择 composition",
+      still: "渲染预览帧",
+      retry: "结合反馈重试",
+      done: "完成",
+      failed: "失败",
+      cancelled: "已取消",
+    },
+    outcome: {
+      savedToLibrary: "✓ 视频已就绪",
+      composition: "Composition",
+      openLibrary: "去资源库查看",
+      copyWorkspacePath: "复制工作区路径",
+      downloadVideo: "下载 mp4",
+      cancelled: "任务已取消。",
+      failed: "任务失败。",
+      failedNoDetail: "任务失败，但服务端没有返回具体原因。请查看网关日志。",
+      debugDetails: "调试详情",
+    },
+    errors: {
+      submitFailed: "提交任务失败：{detail}",
+    },
+    auth: {
+      badge: {
+        unset: "选择 AI",
+        hosted: "托管服务",
+        byok: "自带 Key",
+        openrouter: "OpenRouter",
+        creditsRemaining: "剩余 {count} 次",
+        creditsUnknown: "配额未知",
+      },
+      modal: {
+        close: "关闭",
+        back: "返回",
+        submitting: "处理中…",
+        chooser: {
+          title: "选择 AI 服务",
+          intro: "AI 创作需要一个模型供应商。请选择一个后继续，之后可在面板顶部切换。",
+          hostedTitle: "使用 yyvideoclaw 托管服务",
+          hostedBadge: "推荐",
+          hostedDescription: "使用 yyvideoclaw 账号登录；模型由我们承担。赠送每月免费额度。",
+          byokTitle: "使用我自己的 Key",
+          byokDescription:
+            "提供 OpenAI 或 OpenRouter API Key。本地保存，费用由你直接向模型供应商支付。",
+        },
+        hosted: {
+          title: "登录 yyvideoclaw",
+          intro: "请使用你的 yyvideoclaw 账号邮箱和密码。",
+          emailLabel: "邮箱",
+          passwordLabel: "密码",
+          submit: "登录",
+        },
+        byokPick: {
+          title: "选择 Key 提供方",
+          intro: "两种都将 Key 保存在本机。请选择你已经持有的 API Key 类型。",
+          openaiTitle: "OpenAI（sk-…）",
+          openaiDescription:
+            "使用 platform.openai.com 的 Key。保存到 ~/.codex/auth.json，与 codex login 写入位置一致。",
+          openrouterTitle: "OpenRouter（sk-or-v1-…）",
+          openrouterDescription:
+            "一个 OpenRouter Key 即可使用 300+ 模型（Claude、GPT、DeepSeek、Llama 等）。保存到 ~/.openclaw/remotion-ai/byok-openrouter.json。",
+          openrouterUnsupportedBadge: "暂不支持",
+          openrouterUnsupportedHint:
+            'codex CLI 现要求 wire_api = "responses"，而 OpenRouter 不提供 Responses API，因此暂时停用。详见 openai/codex 讨论 #7782。',
+        },
+        byokOpenai: {
+          title: "使用你的 OpenAI Key",
+          intro:
+            "粘贴 sk- 开头的 API Key。我们会以 0600 权限写入 ~/.codex/auth.json（与 codex CLI 一致）。",
+          apiKeyLabel: "OpenAI API Key",
+          apiKeyHint: "Key 不会发送到 yyvideoclaw 服务器，codex CLI 直接读取。",
+          displayNameLabel: "标签（可选）",
+          displayNamePlaceholder: "例如：个人账号",
+          submit: "保存 Key",
+        },
+        byokOpenrouter: {
+          title: "使用你的 OpenRouter Key",
+          intro:
+            "粘贴 sk-or-v1- 开头的 Key 并选择模型。我们会更新 ~/.codex/config.toml 添加 OpenRouter provider 配置，Key 保存在 ~/.openclaw/remotion-ai/ 下。",
+          apiKeyLabel: "OpenRouter API Key",
+          apiKeyHint:
+            "在 openrouter.ai/keys 获取。Key 以 OPENROUTER_API_KEY 形式注入到 codex 子进程环境变量。",
+          modelLabel: "模型",
+          modelLoading: "加载模型中…",
+          modelHint:
+            "价格按每 100 万 token 计。代码能力强的模型（Claude Sonnet、GPT-4.1）通常比便宜的 Chat 模型生成更好的 Remotion 项目。",
+          displayNameLabel: "标签（可选）",
+          displayNamePlaceholder: "例如：OpenRouter 试用",
+          submit: "保存 Key",
+        },
+        errors: {
+          invalidCredentials: "邮箱或密码不正确。",
+          backendUnreachable: "无法连接到 yyvideoclaw 服务，请检查网络。",
+          backendError: "yyvideoclaw 服务返回错误：{detail}",
+          invalidApiKey:
+            "不像是有效的 API Key。OpenAI Key 以 sk- 开头，OpenRouter Key 以 sk-or-v1- 开头。",
+          ioError: "无法保存 Key 到本地：{detail}",
+          generic: "发生错误：{detail}",
+        },
+      },
+    },
+  },
+  library: {
+    heading: "资源库",
+    description: "本地 AI 生成资源。每次 AI 创作的工程会自动放在这里——可浏览、预览或删除历史结果。",
+    actions: {
+      refresh: "刷新",
+    },
+    filter: {
+      searchPlaceholder: "搜索提示词 / 路径 / 引擎…",
+      includeLive: "显示进行中的任务",
+    },
+    sources: {
+      all: "全部来源",
+      remotionAi: "Remotion AI 任务",
+    },
+    item: {
+      untitled: "（无提示词）",
+      liveBadge: "进行中",
+      created: "创建于 {ts}",
+      copyPath: "复制路径",
+      delete: "删除",
+      deleting: "删除中…",
+    },
+    empty: {
+      zero: "资源库还是空的。去 Remotion Studio 启动一个 AI 创作任务吧。",
+      cta: "去 Remotion Studio",
+      filtered: "没有条目匹配当前筛选。",
     },
   },
 };

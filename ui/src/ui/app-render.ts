@@ -95,6 +95,13 @@ import {
   saveExecApprovals,
   updateExecApprovalsFormValue,
 } from "./controllers/exec-approvals.ts";
+import {
+  applyLibraryFilter,
+  deleteLibraryItem,
+  loadLibrary,
+  updateLibraryFilter,
+  type LibraryFilter,
+} from "./controllers/library.ts";
 import { loadLogs } from "./controllers/logs.ts";
 import { loadNodes } from "./controllers/nodes.ts";
 import { loadPresence } from "./controllers/presence.ts";
@@ -103,6 +110,20 @@ import {
   saveProviderApiKey,
   saveProviderBaseUrl,
 } from "./controllers/providers.ts";
+import {
+  fetchAuthStatus,
+  fetchOpenRouterModels,
+  loginHosted,
+  logoutAuth,
+  saveByokKey,
+} from "./controllers/remotion-ai-auth.ts";
+import {
+  cancelRemotionAiJob,
+  startRemotionAiJobPolling,
+  submitRemotionAiJob,
+  updateRemotionAiDraft,
+  type RemotionAiJobSnapshotWire,
+} from "./controllers/remotion-ai.ts";
 import {
   fetchRemotionArtifactBlob,
   loadRemotionHistory,
@@ -144,8 +165,8 @@ import {
   updateVideoStudioDraft,
 } from "./controllers/video-studio.ts";
 import { buildExternalLinkRel, EXTERNAL_LINK_TARGET } from "./external-link.ts";
-import "./components/dashboard-header.ts";
 import { icons } from "./icons.ts";
+import "./components/dashboard-header.ts";
 import { normalizeBasePath, TAB_GROUPS, subtitleForTab, titleForTab } from "./navigation.ts";
 import { isPluginEnabledInConfigSnapshot } from "./plugin-activation.ts";
 import { isRenderableControlUiAvatarUrl } from "./views/agents-utils.ts";
@@ -174,6 +195,7 @@ import {
 import { renderDreaming } from "./views/dreaming.ts";
 import { renderExecApprovalPrompt } from "./views/exec-approval.ts";
 import { renderGatewayUrlConfirmation } from "./views/gateway-url-confirmation.ts";
+import { renderLibraryView } from "./views/library-view.ts";
 import { renderLoginGate } from "./views/login-gate.ts";
 import { renderOverview } from "./views/overview.ts";
 import { renderRemoteTerminalView } from "./views/remote-terminal-view.ts";
@@ -2632,6 +2654,14 @@ export function renderApp(state: AppViewState) {
               const triggerUpdate: () => void = () => {
                 requestHostUpdate?.();
               };
+              // Lazy-load the auth status the first time the panel mounts.
+              // We set `remotionAiAuthStatus` to a placeholder shape on
+              // first enter (not null) so this fires exactly once per
+              // session. The fetch opens the chooser modal if the mode
+              // came back "unset".
+              if (state.remotionAiAuthStatus === null && !state.remotionAiAuthPending) {
+                void refreshRemotionAiAuthStatus(state, triggerUpdate);
+              }
               return renderRemotionStudioView({
                 status: state.remotionStatus,
                 statusError: state.remotionStatusError,
@@ -2646,6 +2676,133 @@ export function renderApp(state: AppViewState) {
                 submitError: state.remotionSubmitError,
                 previewBlobUrl: state.remotionPreviewBlobUrl,
                 basePath: state.basePath,
+                aiPanel: {
+                  draft: state.remotionAiDraft,
+                  currentJob: state.remotionAiCurrentJob,
+                  submitting: state.remotionAiSubmitting,
+                  submitError: state.remotionAiSubmitError,
+                  cancelling: state.remotionAiCancelling,
+                  lastAgentMessage: state.remotionAiLastAgentMessage,
+                  collapsed: state.remotionAiCollapsed,
+                  advancedOpen: state.remotionAiAdvancedOpen,
+                  basePath: state.basePath,
+                  // M1 auth state. The view renders the chooser modal
+                  // whenever `authModalView !== "closed"`. The panel
+                  // header's "Choose AI" badge flips `authModalView` to
+                  // "chooser" via onOpenAuthModal.
+                  authStatus: state.remotionAiAuthStatus,
+                  authModalView: state.remotionAiAuthModalView,
+                  authPending: state.remotionAiAuthPending,
+                  authError: state.remotionAiAuthError,
+                  openRouterModels: state.remotionAiOpenRouterModels ?? null,
+                  callbacks: {
+                    onDraftChange: (patch) => {
+                      updateRemotionAiDraft(state, patch);
+                      triggerUpdate();
+                    },
+                    onSubmit: () => {
+                      void handleRemotionAiSubmit(state, triggerUpdate);
+                    },
+                    onCancel: () => {
+                      void handleRemotionAiCancel(state, triggerUpdate);
+                    },
+                    onToggleCollapsed: () => {
+                      state.remotionAiCollapsed = !state.remotionAiCollapsed;
+                      triggerUpdate();
+                    },
+                    onToggleAdvanced: () => {
+                      state.remotionAiAdvancedOpen = !state.remotionAiAdvancedOpen;
+                      triggerUpdate();
+                    },
+                    onOpenLibrary: () => {
+                      state.setTab("library" as import("./navigation.ts").Tab);
+                      triggerUpdate();
+                    },
+                    onCopyPath: (path) => {
+                      void navigator.clipboard?.writeText(path).catch(() => {
+                        /* clipboard blocked — swallow silently */
+                      });
+                    },
+                    onOpenAuthModal: () => {
+                      state.remotionAiAuthModalView = "chooser";
+                      state.remotionAiAuthError = null;
+                      triggerUpdate();
+                    },
+                    authModal: {
+                      onPickHosted: () => {
+                        state.remotionAiAuthModalView = "hosted";
+                        state.remotionAiAuthError = null;
+                        triggerUpdate();
+                      },
+                      onPickByok: () => {
+                        // First-level "BYOK" → show the provider sub-chooser.
+                        state.remotionAiAuthModalView = "byok-pick";
+                        state.remotionAiAuthError = null;
+                        triggerUpdate();
+                      },
+                      onPickByokOpenAi: () => {
+                        state.remotionAiAuthModalView = "byok-openai";
+                        state.remotionAiAuthError = null;
+                        triggerUpdate();
+                      },
+                      onPickByokOpenRouter: () => {
+                        // OpenRouter direct-connect is currently disabled
+                        // (codex CLI removed `wire_api = "chat"` and
+                        // OpenRouter has no Responses API). The picker
+                        // button is rendered as `disabled`, so this
+                        // callback should never fire — keep it defensive
+                        // in case something else dispatches it.
+                      },
+                      onBackToChooser: () => {
+                        // Walk one step back in the modal nav stack:
+                        //   byok-openai / byok-openrouter → byok-pick
+                        //   byok-pick                     → chooser
+                        //   hosted                        → chooser
+                        const next: typeof state.remotionAiAuthModalView =
+                          state.remotionAiAuthModalView === "byok-openai" ||
+                          state.remotionAiAuthModalView === "byok-openrouter"
+                            ? "byok-pick"
+                            : "chooser";
+                        state.remotionAiAuthModalView = next;
+                        state.remotionAiAuthError = null;
+                        triggerUpdate();
+                      },
+                      onClose: () => {
+                        // Defensive: the modal view itself guards against
+                        // dismiss when mode is "unset", but double-check
+                        // here to make sure the user can't bypass the
+                        // gate by sending a synthetic event.
+                        if (
+                          state.remotionAiAuthStatus === null ||
+                          state.remotionAiAuthStatus.mode === "unset"
+                        ) {
+                          return;
+                        }
+                        state.remotionAiAuthModalView = "closed";
+                        state.remotionAiAuthError = null;
+                        triggerUpdate();
+                      },
+                      onSubmitHosted: (email, password) => {
+                        void handleRemotionAiHostedLogin(state, triggerUpdate, email, password);
+                      },
+                      onSubmitByokOpenAi: (apiKey, displayName) => {
+                        void handleRemotionAiByok(state, triggerUpdate, {
+                          provider: "openai",
+                          apiKey,
+                          ...(displayName ? { displayName } : {}),
+                        });
+                      },
+                      onSubmitByokOpenRouter: (apiKey, model, displayName) => {
+                        void handleRemotionAiByok(state, triggerUpdate, {
+                          provider: "openrouter",
+                          apiKey,
+                          model,
+                          ...(displayName ? { displayName } : {}),
+                        });
+                      },
+                    },
+                  },
+                },
                 callbacks: {
                   onSelectComposition: (entryPoint, compositionId) => {
                     updateRemotionDraft(state, { entryPoint, compositionId });
@@ -2686,6 +2843,48 @@ export function renderApp(state: AppViewState) {
                     void navigator.clipboard?.writeText(path).catch(() => {
                       /* clipboard blocked — swallow silently */
                     });
+                  },
+                },
+              });
+            })()
+          : nothing}
+        ${state.tab === "library"
+          ? (() => {
+              const triggerUpdate: () => void = () => {
+                requestHostUpdate?.();
+              };
+              const filteredItems = applyLibraryFilter(state.libraryItems, state.libraryFilter);
+              return renderLibraryView({
+                items: state.libraryItems,
+                filteredItems,
+                filter: state.libraryFilter,
+                sourceStatus: state.librarySourceStatus,
+                deletingId: state.libraryDeletingId,
+                callbacks: {
+                  onRefresh: () => {
+                    void loadLibrary(state, state as unknown as RemotionHttpDeps).then(
+                      triggerUpdate,
+                    );
+                  },
+                  onFilterChange: (patch: Partial<LibraryFilter>) => {
+                    updateLibraryFilter(state, patch);
+                    triggerUpdate();
+                  },
+                  onCopyPath: (path) => {
+                    void navigator.clipboard?.writeText(path).catch(() => {
+                      /* clipboard blocked — swallow silently */
+                    });
+                  },
+                  onDelete: (itemId) => {
+                    void deleteLibraryItem(
+                      state,
+                      state as unknown as RemotionHttpDeps,
+                      itemId,
+                    ).then(() => triggerUpdate());
+                  },
+                  onGoToRemotionStudio: () => {
+                    state.setTab("remotionStudio" as import("./navigation.ts").Tab);
+                    triggerUpdate();
                   },
                 },
               });
@@ -2811,6 +3010,274 @@ async function handleRemotionSubmit(state: AppViewState, requestUpdate: () => vo
     state.remotionSubmitting = false;
     requestUpdate();
   }
+}
+
+/**
+ * Submit a Remotion AI Create job. Validation mirrors the server so we can
+ * short-circuit obviously bad drafts without a round trip. On success we
+ * immediately start polling the job until it reaches a terminal phase.
+ *
+ * The output directory is NOT a user concern — the server routes new jobs
+ * into the plugin-managed library root. The UI surfaces the result via
+ * the Library tab.
+ */
+async function handleRemotionAiSubmit(
+  state: AppViewState,
+  requestUpdate: () => void,
+): Promise<void> {
+  const draft = state.remotionAiDraft;
+  if (draft.prompt.trim().length === 0) {
+    state.remotionAiSubmitError = "Prompt is required.";
+    requestUpdate();
+    return;
+  }
+  // Auth gate: if no mode is configured, open the chooser modal instead
+  // of firing a job that the server would immediately reject with
+  // `auth_required`. The server will still enforce — this is purely UX
+  // so the user sees "Choose your AI" before the hourglass spins.
+  if (state.remotionAiAuthStatus === null || state.remotionAiAuthStatus.mode === "unset") {
+    state.remotionAiAuthModalView = "chooser";
+    state.remotionAiAuthError = null;
+    requestUpdate();
+    return;
+  }
+  state.remotionAiSubmitting = true;
+  state.remotionAiSubmitError = null;
+  state.remotionAiLastAgentMessage = null;
+  requestUpdate();
+  try {
+    const res = await submitRemotionAiJob(state as unknown as RemotionHttpDeps, {
+      prompt: draft.prompt,
+      engine: draft.engine,
+      retryMax: draft.retryMax,
+    });
+    state.remotionAiCurrentJob = res.job;
+    startRemotionAiPollingFor(state, res.job.jobId, requestUpdate);
+  } catch (err) {
+    state.remotionAiSubmitError = err instanceof Error ? err.message : String(err);
+  } finally {
+    state.remotionAiSubmitting = false;
+    requestUpdate();
+  }
+}
+
+/**
+ * Fetch the current auth status from `/remotion-ai/auth/status` and
+ * open the chooser modal if the backend says the user hasn't picked yet.
+ * Called once on first mount of the Remotion Studio tab.
+ */
+export async function refreshRemotionAiAuthStatus(
+  state: AppViewState,
+  requestUpdate: () => void,
+): Promise<void> {
+  try {
+    const status = await fetchAuthStatus(state as unknown as RemotionHttpDeps);
+    state.remotionAiAuthStatus = status;
+    if (status.mode === "unset" && state.remotionAiAuthModalView === "closed") {
+      state.remotionAiAuthModalView = "chooser";
+    }
+  } catch (err) {
+    // Don't block the rest of the panel on a status fetch hiccup; log
+    // internally and leave authStatus as null so subsequent actions (e.g.
+    // clicking Generate) retry the gate.
+    console.warn("remotion-ai: fetchAuthStatus failed", err);
+  } finally {
+    requestUpdate();
+  }
+}
+
+/**
+ * Handle the hosted login submission from the auth modal. On success we
+ * flip the modal to closed and cache the returned status so the badge
+ * updates without waiting for the next status poll. On failure we keep
+ * the modal on the hosted view and surface the error inline.
+ */
+async function handleRemotionAiHostedLogin(
+  state: AppViewState,
+  requestUpdate: () => void,
+  email: string,
+  password: string,
+): Promise<void> {
+  state.remotionAiAuthPending = true;
+  state.remotionAiAuthError = null;
+  requestUpdate();
+  try {
+    const next = await loginHosted(state as unknown as RemotionHttpDeps, {
+      email,
+      password,
+    });
+    state.remotionAiAuthStatus = next;
+    state.remotionAiAuthModalView = "closed";
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : String(err);
+    // Map a handful of server error shapes to friendlier keys. The
+    // generic branch still shows the raw text so tricky backends can be
+    // debugged without a round-trip.
+    if (raw.includes("invalid_credentials")) {
+      state.remotionAiAuthError = t("remotionAi.auth.modal.errors.invalidCredentials");
+    } else if (raw.includes("backend_unreachable")) {
+      state.remotionAiAuthError = t("remotionAi.auth.modal.errors.backendUnreachable");
+    } else if (raw.includes("backend_error")) {
+      state.remotionAiAuthError = t("remotionAi.auth.modal.errors.backendError", { detail: raw });
+    } else {
+      state.remotionAiAuthError = t("remotionAi.auth.modal.errors.generic", {
+        detail: raw,
+      });
+    }
+  } finally {
+    state.remotionAiAuthPending = false;
+    requestUpdate();
+  }
+}
+
+/**
+ * Handle the byok submission. The body shape is provider-tagged so the
+ * server can route to the correct storage path (~/.codex/auth.json for
+ * openai vs ~/.codex/config.toml + sidecar for openrouter).
+ */
+async function handleRemotionAiByok(
+  state: AppViewState,
+  requestUpdate: () => void,
+  body: {
+    readonly provider: "openai" | "openrouter";
+    readonly apiKey: string;
+    readonly model?: string;
+    readonly displayName?: string;
+  },
+): Promise<void> {
+  state.remotionAiAuthPending = true;
+  state.remotionAiAuthError = null;
+  requestUpdate();
+  try {
+    const next = await saveByokKey(state as unknown as RemotionHttpDeps, body);
+    state.remotionAiAuthStatus = next;
+    state.remotionAiAuthModalView = "closed";
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : String(err);
+    if (
+      raw.toLowerCase().includes("does not look like") ||
+      raw.includes("must look like an OpenAI") ||
+      raw.includes("must look like an OpenRouter")
+    ) {
+      state.remotionAiAuthError = t("remotionAi.auth.modal.errors.invalidApiKey");
+    } else if (raw.toLowerCase().includes("io_error")) {
+      state.remotionAiAuthError = t("remotionAi.auth.modal.errors.ioError", {
+        detail: raw,
+      });
+    } else {
+      state.remotionAiAuthError = t("remotionAi.auth.modal.errors.generic", {
+        detail: raw,
+      });
+    }
+  } finally {
+    state.remotionAiAuthPending = false;
+    requestUpdate();
+  }
+}
+
+/**
+ * Lazy-load the OpenRouter model list.
+ *
+ * Currently unused: OpenRouter direct connect is disabled because the
+ * codex CLI removed `wire_api = "chat"`. We keep the function (with a
+ * leading underscore so the linter knows it's intentional) so the wiring
+ * is ready to flip back on when an upstream solution lands. See
+ * https://github.com/openai/codex/discussions/7782.
+ */
+async function _handleRemotionAiFetchOpenRouterModels(
+  state: AppViewState,
+  requestUpdate: () => void,
+): Promise<void> {
+  try {
+    const models = await fetchOpenRouterModels(state as unknown as RemotionHttpDeps);
+    state.remotionAiOpenRouterModels = models;
+  } catch (err) {
+    // Don't surface the error in the modal — the fallback list keeps the
+    // form usable. Log internally so a developer with DevTools open can
+    // see what went wrong.
+    console.warn("remotion-ai: fetchOpenRouterModels failed", err);
+    state.remotionAiOpenRouterModels = [];
+  } finally {
+    requestUpdate();
+  }
+}
+
+/**
+ * Switch modes from the header badge (hosted ↔ byok). `clearByok` tells
+ * the backend to also wipe `~/.codex/auth.json` — we default to false so
+ * switching hosted → byok doesn't surprise the user by deleting a key
+ * they already configured in a previous session.
+ */
+export async function handleRemotionAiLogout(
+  state: AppViewState,
+  requestUpdate: () => void,
+  options: { readonly clearByok?: boolean } = {},
+): Promise<void> {
+  state.remotionAiAuthPending = true;
+  state.remotionAiAuthError = null;
+  requestUpdate();
+  try {
+    const next = await logoutAuth(state as unknown as RemotionHttpDeps, options);
+    state.remotionAiAuthStatus = next;
+    state.remotionAiAuthModalView = "chooser";
+  } catch (err) {
+    state.remotionAiAuthError = err instanceof Error ? err.message : String(err);
+  } finally {
+    state.remotionAiAuthPending = false;
+    requestUpdate();
+  }
+}
+
+async function handleRemotionAiCancel(
+  state: AppViewState,
+  requestUpdate: () => void,
+): Promise<void> {
+  const job = state.remotionAiCurrentJob;
+  if (!job) {
+    return;
+  }
+  state.remotionAiCancelling = true;
+  requestUpdate();
+  try {
+    await cancelRemotionAiJob(state as unknown as RemotionHttpDeps, job.jobId);
+  } catch (err) {
+    state.remotionAiSubmitError = err instanceof Error ? err.message : String(err);
+  } finally {
+    state.remotionAiCancelling = false;
+    requestUpdate();
+  }
+}
+
+function startRemotionAiPollingFor(
+  state: AppViewState,
+  jobId: string,
+  requestUpdate: () => void,
+): void {
+  // Replace any previous poller for the same job.
+  const prev = state.remotionAiPollHandles.get(jobId);
+  if (prev) {
+    clearInterval(prev);
+  }
+  const handle = startRemotionAiJobPolling(
+    state as unknown as RemotionHttpDeps,
+    jobId,
+    {
+      onUpdate: (snap: RemotionAiJobSnapshotWire) => {
+        state.remotionAiCurrentJob = snap;
+        requestUpdate();
+      },
+      onTerminal: (snap: RemotionAiJobSnapshotWire) => {
+        state.remotionAiCurrentJob = snap;
+        state.remotionAiPollHandles.delete(jobId);
+        requestUpdate();
+      },
+      onPollError: () => {
+        /* swallow transient errors; next tick will retry */
+      },
+    },
+    500,
+  );
+  state.remotionAiPollHandles.set(jobId, handle);
 }
 
 async function loadRemotionPreviewBlob(

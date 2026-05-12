@@ -1,0 +1,57 @@
+{
+  "id": "remotion-ai",
+  "enabledByDefault": false,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "engine": {
+        "type": "string",
+        "enum": ["codex"],
+        "default": "codex",
+        "description": "Agent engine used to author the Remotion project. M1 only ships the codex engine; claude-code and remote-worker are reserved for M2."
+      },
+      "outputRootAllowlist": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Absolute directories where AI workspaces may be created. If empty, any user-provided output root is accepted (subject to traversal checks). The generated project directory is NEVER auto-added to the remotion plugin's templateRoots."
+      },
+      "retryMax": {
+        "type": "number",
+        "default": 3,
+        "minimum": 0,
+        "maximum": 10,
+        "description": "Maximum retries for the validation loop. Each retry re-prompts the same agent session with the failure digest."
+      },
+      "jobTimeoutMs": {
+        "type": "number",
+        "default": 600000,
+        "minimum": 1000,
+        "description": "Hard upper bound on a single AI Create job in milliseconds (default: 10 minutes). Covers the full agent + validation loop."
+      },
+      "skillsBundled": {
+        "type": "boolean",
+        "default": true,
+        "description": "If true, the ai-starter template ships with Remotion Agent Skills vendored at build time (offline-capable, pinned version). If false, skills are omitted and the agent must rely on its own knowledge."
+      },
+      "starterDir": {
+        "type": "string",
+        "description": "Absolute path to the ai-starter template directory. Defaults to the bundled remotion-templates/ai-starter."
+      },
+      "allowNetwork": {
+        "type": "boolean",
+        "default": false,
+        "description": "If false (default), the headless Chromium used during validation blocks all network requests. Mirrors the remotion plugin's behavior."
+      },
+      "chromiumExecutablePath": {
+        "type": "string",
+        "description": "Override the Chromium executable used by the validation render worker. Defaults to the one bundled with @remotion/renderer."
+      },
+      "maxOutputBytes": {
+        "type": "number",
+        "default": 10485760,
+        "description": "Maximum allowed size of the validation still PNG in bytes (default: 10 MiB). Oversized outputs fail the validation step."
+      }
+    }
+  }
+}

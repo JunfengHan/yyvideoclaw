@@ -395,6 +395,43 @@ export type AppViewState = {
     remotionHistory: readonly import("./controllers/remotion-studio.js").RemotionJobResponseWire[];
     remotionPreviewBlobUrl: string | null;
     remotionPollHandles: Map<string, ReturnType<typeof setInterval>>;
+    remotionAiDraft: import("./controllers/remotion-ai.js").RemotionAiDraft;
+    remotionAiCurrentJob: import("./controllers/remotion-ai.js").RemotionAiJobSnapshotWire | null;
+    remotionAiHistory: readonly import("./controllers/remotion-ai.js").RemotionAiJobSnapshotWire[];
+    remotionAiSubmitting: boolean;
+    remotionAiSubmitError: string | null;
+    remotionAiCancelling: boolean;
+    remotionAiLastAgentMessage: string | null;
+    remotionAiCollapsed: boolean;
+    remotionAiAdvancedOpen: boolean;
+    remotionAiPollHandles: Map<string, ReturnType<typeof setInterval>>;
+    // M1 auth: hosted vs byok mode state. Mirrors the wire types from
+    // controllers/remotion-ai-auth.ts. `null` authStatus means we haven't
+    // fetched /remotion-ai/auth/status yet — the view treats that as
+    // "needs setup" so the modal gets mounted on first paint.
+    remotionAiAuthStatus:
+      | import("./controllers/remotion-ai-auth.js").RemotionAiAuthStatusWire
+      | null;
+    remotionAiAuthModalView: import("./controllers/remotion-ai-auth.js").RemotionAiAuthModalView;
+    remotionAiAuthPending: boolean;
+    remotionAiAuthError: string | null;
+    /** OpenRouter model list cached in memory (lazy-fetched the first
+     *  time the user enters the byok-openrouter modal view). `null` =
+     *  fetch in flight; `undefined` = haven't fetched yet. */
+    remotionAiOpenRouterModels:
+      | ReadonlyArray<import("./controllers/remotion-ai-auth.js").OpenRouterModelWire>
+      | null
+      | undefined;
+    libraryItems: readonly import("./controllers/library.js").LibraryItem[];
+    librarySourceStatus: Readonly<
+      Record<
+        import("./controllers/library.js").LibrarySourceId,
+        import("./controllers/library.js").LibrarySourceStatus
+      >
+    >;
+    libraryFilter: import("./controllers/library.js").LibraryFilter;
+    libraryDeletingId: string | null;
+    libraryPollHandle: ReturnType<typeof setInterval> | null;
     updateAvailable: import("./types.js").UpdateAvailable | null;
     attentionItems: AttentionItem[];
     paletteOpen: boolean;

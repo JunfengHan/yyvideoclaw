@@ -1,0 +1,12 @@
+{
+  "name": "yyvideoclaw-remotion-ai-starter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Create starter — minimal Remotion project that AI agents (Codex in M1) author into. Used as the template copied into every remotion-ai workspace.",
+  "type": "module",
+  "dependencies": {
+    "react": "*",
+    "react-dom": "*",
+    "remotion": "*"
+  }
+}

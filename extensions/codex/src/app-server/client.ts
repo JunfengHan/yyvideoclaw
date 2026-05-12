@@ -63,10 +63,43 @@ export class CodexAppServerClient {
     this.child = child;
     this.lines = createInterface({ input: child.stdout });
     this.lines.on("line", (line) => this.handleLine(line));
+    // Diagnostic seam: when `OPENCLAW_CODEX_STDERR_TEE` is set to a
+    // writable path we mirror the codex child's stderr there in addition
+    // to the usual `embeddedAgentLog.debug` route. Useful when running
+    // outside the gateway (e.g. local smoke scripts) where the embedded
+    // agent log has no destination, so model-side failures arrive as
+    // empty "codex app-server error" notifications. Production deploys
+    // never set the env var, so this is a no-op cost. We open in append
+    // mode and best-effort — any write error falls back to the existing
+    // path so a bad tee path can't break codex.
+    const stderrTeePath = process.env.OPENCLAW_CODEX_STDERR_TEE;
+    let stderrTeeStream: import("node:fs").WriteStream | null = null;
+    if (stderrTeePath && stderrTeePath.length > 0) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- diagnostic seam, fs is a stdlib import we don't want to add at module top
+        const fs = require("node:fs") as typeof import("node:fs");
+        stderrTeeStream = fs.createWriteStream(stderrTeePath, { flags: "a" });
+      } catch {
+        stderrTeeStream = null;
+      }
+    }
     child.stderr.on("data", (chunk: Buffer | string) => {
-      const text = chunk.toString("utf8").trim();
-      if (text) {
-        embeddedAgentLog.debug(`codex app-server stderr: ${text}`);
+      const text = chunk.toString("utf8");
+      if (stderrTeeStream) {
+        try {
+          stderrTeeStream.write(text);
+        } catch {
+          // Best-effort tee; never let a bad sink break codex.
+        }
+      }
+      const trimmed = text.trim();
+      if (trimmed) {
+        embeddedAgentLog.debug(`codex app-server stderr: ${trimmed}`);
+      }
+    });
+    child.once("exit", () => {
+      if (stderrTeeStream) {
+        stderrTeeStream.end();
       }
     });
     child.once("error", (error) =>
@@ -245,6 +278,13 @@ export class CodexAppServerClient {
     const trimmed = line.trim();
     if (!trimmed) {
       return;
+    }
+    // Diagnostic seam: when OPENCLAW_CODEX_STDERR_TEE is set, dump every
+    // incoming raw line to stderr so local smoke runs can see exactly
+    // what codex emitted (notifications often carry the real error
+    // payload while the projected `error` event drops the params).
+    if (process.env.OPENCLAW_CODEX_STDERR_TEE) {
+      process.stderr.write(`[codex<-] ${trimmed}\n`);
     }
     let parsed: unknown;
     try {

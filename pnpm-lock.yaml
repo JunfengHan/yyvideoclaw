@@ -1130,6 +1130,31 @@ importers:
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
 
+  extensions/remotion-ai:
+    dependencies:
+      '@openai/codex':
+        specifier: ^0.129.0
+        version: 0.129.0
+      '@remotion/bundler':
+        specifier: 4.0.290
+        version: 4.0.290(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@remotion/renderer':
+        specifier: 4.0.290
+        version: 4.0.290(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      remotion:
+        specifier: 4.0.290
+        version: 4.0.290(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      typebox:
+        specifier: 1.1.28
+        version: 1.1.28
+    devDependencies:
+      '@openclaw/codex':
+        specifier: workspace:*
+        version: link:../codex
+      '@openclaw/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
+
   extensions/runway:
     devDependencies:
       '@openclaw/plugin-sdk':
@@ -3288,6 +3313,47 @@ packages:
   '@nolyfill/domexception@1.0.28':
     resolution: {integrity: sha512-tlc/FcYIv5i8RYsl2iDil4A0gOihaas1R5jPcIC4Zw3GhjKsVilw90aHcVlhZPTBLGBzd379S+VcnsDjd9ChiA==}
     engines: {node: '>=12.4.0'}
+
+  '@openai/codex@0.129.0':
+    resolution: {integrity: sha512-8zZlcO4ploUzULJ3xT5qx8eOCL/L7gOrpWXCtr2kP568idZjWhbz3L2WE8BvjBDUF17WMDhjOklCj6DGd1cKfQ==}
+    engines: {node: '>=16'}
+    hasBin: true
+
+  '@openai/codex@0.129.0-darwin-arm64':
+    resolution: {integrity: sha512-tVFwzbh612oip/yZMeQziMtUWLz08A8ChhS6U/bNZjCKWD11bQvDZjxZJNzhWvmom/gKeXstwoUp9u1S8eCcnA==}
+    engines: {node: '>=16'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@openai/codex@0.129.0-darwin-x64':
+    resolution: {integrity: sha512-BtGc4ujzxRVIB0DcpiehP7/aQeAGEi0pNd9C98rtIqy1OBMwhOZ3ri/achzP0lxw8LWWFp8sL+hQdTGze6SGwg==}
+    engines: {node: '>=16'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@openai/codex@0.129.0-linux-arm64':
+    resolution: {integrity: sha512-VnjI4Xla4uwaAqYCekwBm4dlucvaduTdhVr3bqU+6qfG5N9yn1bR7ZS7xMRlaRgS0oIst9fgYyC2niSYPOzuDA==}
+    engines: {node: '>=16'}
+    cpu: [arm64]
+    os: [linux]
+
+  '@openai/codex@0.129.0-linux-x64':
+    resolution: {integrity: sha512-YwkJtcHXeXdI+cfdv7qKGfafwePEEbSCRL5Z++/8djnI+iBj6nIMz4ouhe12yvsMccVqNTtCH8H0QrygHARpNg==}
+    engines: {node: '>=16'}
+    cpu: [x64]
+    os: [linux]
+
+  '@openai/codex@0.129.0-win32-arm64':
+    resolution: {integrity: sha512-8rwpYBKg/vI3IHZB2ggFmIDz+4slG7mfYTFoQtRw2m2KMS1g1XMOJK9heM80NMiCY3hqmyMN81bOQ7aKAmgFLg==}
+    engines: {node: '>=16'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@openai/codex@0.129.0-win32-x64':
+    resolution: {integrity: sha512-yP59c7O3J8zZ/eyN6HXMeeZ2xksJE8/Xy9kn3qznC7jCN3GEtM7B6Wv4gEY5F/jzik+B+tU71rmkGmqzQjfVVQ==}
+    engines: {node: '>=16'}
+    cpu: [x64]
+    os: [win32]
 
   '@opentelemetry/api-logs@0.215.0':
     resolution: {integrity: sha512-xrFlqhdhUyO8wSRn6DjE0145/HPWSJ5Nm0C7vWua6TdL/FSEAZvEyvdsa9CRXuxo9ebb7j/NEPhEcO62IJ0qUA==}
@@ -11039,6 +11105,33 @@ snapshots:
       fastq: 1.20.1
 
   '@nolyfill/domexception@1.0.28': {}
+
+  '@openai/codex@0.129.0':
+    optionalDependencies:
+      '@openai/codex-darwin-arm64': '@openai/codex@0.129.0-darwin-arm64'
+      '@openai/codex-darwin-x64': '@openai/codex@0.129.0-darwin-x64'
+      '@openai/codex-linux-arm64': '@openai/codex@0.129.0-linux-arm64'
+      '@openai/codex-linux-x64': '@openai/codex@0.129.0-linux-x64'
+      '@openai/codex-win32-arm64': '@openai/codex@0.129.0-win32-arm64'
+      '@openai/codex-win32-x64': '@openai/codex@0.129.0-win32-x64'
+
+  '@openai/codex@0.129.0-darwin-arm64':
+    optional: true
+
+  '@openai/codex@0.129.0-darwin-x64':
+    optional: true
+
+  '@openai/codex@0.129.0-linux-arm64':
+    optional: true
+
+  '@openai/codex@0.129.0-linux-x64':
+    optional: true
+
+  '@openai/codex@0.129.0-win32-arm64':
+    optional: true
+
+  '@openai/codex@0.129.0-win32-x64':
+    optional: true
 
   '@opentelemetry/api-logs@0.215.0':
     dependencies:

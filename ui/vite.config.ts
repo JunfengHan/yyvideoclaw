@@ -167,6 +167,18 @@ export default defineConfig(() => {
         "/remotion/render": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
         "/remotion/history": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
         "/remotion/jobs": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
+        // Remotion AI Create plugin HTTP routes (extensions/remotion-ai/index.ts).
+        // POST /remotion-ai/jobs submits, GET /remotion-ai/jobs/:id snapshots,
+        // POST /remotion-ai/jobs/:id/cancel cancels, GET /remotion-ai/jobs/:id/events
+        // is SSE, /remotion-ai/history lists recent jobs, /remotion-ai/library
+        // backs the Library tab. Without these entries the dev server returns
+        // the SPA index and the browser surfaces "404 Not Found" on submit.
+        "/remotion-ai/jobs": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
+        "/remotion-ai/history": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
+        "/remotion-ai/library": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
+        // Auth routes for the AI Create panel: hosted login, byok key write,
+        // status / usage reads.
+        "/remotion-ai/auth": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
         "/v1": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
         "/plugins": gatewayProxy(gatewayTarget, devBearer, { ws: false }),
         "/remote-terminal/ws": gatewayProxy(gatewayTarget, devBearer, { ws: true }),

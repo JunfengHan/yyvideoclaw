@@ -174,6 +174,10 @@ export const ja_JP: TranslationMap = {
     dreams: "Dreaming",
     videoStudio: "Video Studio",
     remotionStudio: "Remotion Studio",
+    library: "Library",
+    library: "Library",
+    library: "Library",
+    library: "Library",
   },
   subtitles: {
     remoteTerminal: "Saved SSH profiles and an interactive browser terminal.",
@@ -198,6 +202,10 @@ export const ja_JP: TranslationMap = {
     dreams: "スリープ中のメモリ統合。",
     videoStudio: "Topic-to-video studio powered by the embedded Pixelle backend.",
     remotionStudio: "React-based programmatic video templates rendered locally with Remotion.",
+    library: "Browse AI-generated local resources across all sources.",
+    library: "Browse AI-generated local resources across all sources.",
+    library: "Browse AI-generated local resources across all sources.",
+    library: "Browse AI-generated local resources across all sources.",
   },
   remoteTerminal: {
     eyebrow: "yyVideo · Remote servers",
@@ -1154,6 +1162,178 @@ export const ja_JP: TranslationMap = {
     errors: {
       generic: "Something went wrong: {detail}",
       submitFailed: "Failed to start render: {detail}",
+    },
+  },
+  remotionAi: {
+    heading: "AI Create",
+    state: {
+      idle: "Idle",
+    },
+    actions: {
+      collapse: "Collapse",
+      expand: "Expand",
+    },
+    form: {
+      promptLabel: "Prompt",
+      promptPlaceholder:
+        "Describe the Remotion video you want the agent to author (e.g. \"A 3-second title card animating the word 'Hello' with a gradient background\").",
+      retryMaxLabel: "Max retries",
+      submit: "Generate",
+      submitting: "Generating…",
+      cancel: "Cancel",
+      advancedShow: "▸ Advanced",
+      advancedHide: "▾ Advanced",
+      advancedHint:
+        "These settings have sensible defaults. Tweak only if a job keeps failing validation.",
+      validation: {
+        promptRequired: "Please enter a prompt to get started.",
+      },
+    },
+    status: {
+      phase: "Phase",
+      retryCount: "{count} retry attempt(s)",
+      elapsed: "{seconds}s elapsed",
+      progressLabel: "Job progress",
+    },
+    phase: {
+      queued: "queued",
+      workspace: "preparing workspace",
+      skills: "loading skills",
+      agent: "agent thinking",
+      bundle: "bundling project",
+      select: "selecting composition",
+      still: "rendering preview",
+      retry: "retrying with feedback",
+      done: "done",
+      failed: "failed",
+      cancelled: "cancelled",
+    },
+    outcome: {
+      savedToLibrary: "✓ Saved to Library",
+      composition: "Composition",
+      openLibrary: "Open in Library",
+      copyWorkspacePath: "Copy workspace path",
+      cancelled: "Job cancelled.",
+      failed: "Job failed.",
+      failedNoDetail:
+        "The job failed but the server didn't report a specific reason. Check the gateway logs for details.",
+      debugDetails: "Debug details",
+    },
+    errors: {
+      submitFailed: "Could not submit job: {detail}",
+    },
+    auth: {
+      badge: {
+        unset: "Choose AI",
+        hosted: "Hosted",
+        byok: "Own key",
+        openrouter: "OpenRouter",
+        creditsRemaining: "{count} credits left",
+        creditsUnknown: "Quota unknown",
+      },
+      modal: {
+        close: "Close",
+        back: "Back",
+        submitting: "Working…",
+        chooser: {
+          title: "Choose your AI service",
+          intro:
+            "AI Create needs a model provider. Pick one to continue. You can switch later from the panel header.",
+          hostedTitle: "Use yyvideoclaw hosted",
+          hostedBadge: "Recommended",
+          hostedDescription:
+            "Sign in with your yyvideoclaw account; we cover the model. Free monthly quota included.",
+          byokTitle: "Use my own key",
+          byokDescription:
+            "Bring an OpenAI or OpenRouter API key. Stored locally; you pay the model provider directly.",
+        },
+        hosted: {
+          title: "Sign in to yyvideoclaw",
+          intro: "Use the email + password from your yyvideoclaw account.",
+          emailLabel: "Email",
+          passwordLabel: "Password",
+          submit: "Sign in",
+        },
+        byokPick: {
+          title: "Pick a key provider",
+          intro:
+            "Both store the key on this machine. Pick the service whose API key you already have.",
+          openaiTitle: "OpenAI (sk-…)",
+          openaiDescription:
+            "Use a key from platform.openai.com. Saved to ~/.codex/auth.json — same place codex login writes to.",
+          openrouterTitle: "OpenRouter (sk-or-v1-…)",
+          openrouterDescription:
+            "Use one OpenRouter key for 300+ models (Claude, GPT, DeepSeek, Llama, …). Saved to ~/.openclaw/remotion-ai/byok-openrouter.json.",
+          openrouterUnsupportedBadge: "Unavailable",
+          openrouterUnsupportedHint:
+            'Disabled while the codex CLI requires wire_api = "responses" and OpenRouter has no Responses API. See openai/codex discussion #7782.',
+        },
+        byokOpenai: {
+          title: "Use your OpenAI key",
+          intro:
+            "Paste a key starting with sk-…. We write it to ~/.codex/auth.json with 0600 perms — the same file the codex CLI uses.",
+          apiKeyLabel: "OpenAI API key",
+          apiKeyHint:
+            "We never transmit this key to yyvideoclaw servers. The codex CLI reads it directly.",
+          displayNameLabel: "Label (optional)",
+          displayNamePlaceholder: "e.g. Personal account",
+          submit: "Save key",
+        },
+        byokOpenrouter: {
+          title: "Use your OpenRouter key",
+          intro:
+            "Paste a sk-or-v1-… key and pick a model. We update ~/.codex/config.toml with an OpenRouter provider entry and store the key under ~/.openclaw/remotion-ai/.",
+          apiKeyLabel: "OpenRouter API key",
+          apiKeyHint:
+            "Find this at openrouter.ai/keys. The key is loaded into the codex child process as OPENROUTER_API_KEY.",
+          modelLabel: "Model",
+          modelLoading: "loading models…",
+          modelHint:
+            "Pricing shown is per 1M tokens. Code-strong models (Claude Sonnet, GPT-4.1) tend to produce better Remotion projects than cheap chat models.",
+          displayNameLabel: "Label (optional)",
+          displayNamePlaceholder: "e.g. OpenRouter trial",
+          submit: "Save key",
+        },
+        errors: {
+          invalidCredentials: "That email and password didn't match an account.",
+          backendUnreachable:
+            "Couldn't reach the yyvideoclaw service. Check your internet connection.",
+          backendError: "The yyvideoclaw service returned an error: {detail}",
+          invalidApiKey:
+            "That doesn't look like a valid API key. OpenAI keys start with sk-…, OpenRouter keys with sk-or-v1-….",
+          ioError: "Couldn't save the key on disk: {detail}",
+          generic: "Something went wrong: {detail}",
+        },
+      },
+    },
+  },
+  library: {
+    heading: "Library",
+    description:
+      "Local AI-generated resources. Every AI Create job lands here automatically — browse, preview, or delete past runs.",
+    actions: {
+      refresh: "Refresh",
+    },
+    filter: {
+      searchPlaceholder: "Search prompt, path, or engine…",
+      includeLive: "Show in-flight jobs",
+    },
+    sources: {
+      all: "All sources",
+      remotionAi: "Remotion AI jobs",
+    },
+    item: {
+      untitled: "(no prompt)",
+      liveBadge: "running",
+      created: "Created {ts}",
+      copyPath: "Copy path",
+      delete: "Delete",
+      deleting: "Deleting…",
+    },
+    empty: {
+      zero: "Your Library is empty. Kick off an AI Create job in Remotion Studio.",
+      cta: "Go to Remotion Studio",
+      filtered: "No items match the current filter.",
     },
   },
 };

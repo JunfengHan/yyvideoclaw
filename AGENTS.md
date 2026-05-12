@@ -28,6 +28,9 @@ Telegraph style. Root rules only. Read scoped `AGENTS.md` before touching a subt
 Scoped guides:
 
 - `extensions/AGENTS.md`: bundled plugin rules
+- `extensions/remotion-ai/AGENTS.md`: AI Create plugin (cross-plugin
+  consumption of `@openclaw/codex/api.js`; isolated render worker;
+  `remotion-templates/ai-starter` + vendored skills)
 - `src/plugin-sdk/AGENTS.md`: public SDK rules
 - `src/channels/AGENTS.md`: channel core rules
 - `src/plugins/AGENTS.md`: plugin loader/registry rules

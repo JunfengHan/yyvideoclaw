@@ -1,0 +1,14 @@
+# Pinned Remotion Agent Skills vendor state.
+#
+# This file is written by scripts/vendor-remotion-skills.ts and consumed
+# by extensions/remotion-ai/src/skills-vendor.ts (runtime copy into each
+# AI workspace) and by the `check:vendor-remotion-skills` gate.
+#
+# Schema: key=value, stable ordering, one entry per line.
+# Never edit by hand — run `pnpm vendor:remotion-skills` instead.
+
+source = remotion-dev/remotion
+subpath = packages/skills
+ref = unvendored
+sha256 = 0000000000000000000000000000000000000000000000000000000000000000
+vendoredAt = 1970-01-01T00:00:00.000Z

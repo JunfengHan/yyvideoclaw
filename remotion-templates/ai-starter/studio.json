@@ -1,0 +1,29 @@
+{
+  "compositions": {
+    "Main": {
+      "label": "Main Video",
+      "description": "Placeholder composition shipped with the AI starter. Replaced by the agent during generation.",
+      "inputPropsSchema": {
+        "type": "object",
+        "required": ["title", "background", "tint"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Headline shown in the placeholder video.",
+            "default": "Replace me with your video"
+          },
+          "background": {
+            "type": "string",
+            "description": "Backdrop color (hex).",
+            "default": "#0f172a"
+          },
+          "tint": {
+            "type": "string",
+            "description": "Accent color (hex).",
+            "default": "#f97316"
+          }
+        }
+      }
+    }
+  }
+}

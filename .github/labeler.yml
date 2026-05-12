@@ -391,3 +391,14 @@
   - changed-files:
       - any-glob-to-any-file:
           - "extensions/yy-pixelle-video/**"
+"extensions: remotion-ai":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "extensions/remotion-ai/**"
+          - "remotion-templates/ai-starter/**"
+          - "scripts/vendor-remotion-skills.ts"
+          - "scripts/sync-remotion-ai-i18n.ts"
+          - "ui/src/ui/controllers/remotion-ai.ts"
+          - "ui/src/ui/controllers/remotion-ai.test.ts"
+          - "ui/src/ui/views/remotion-ai-panel.ts"
+          - "ui/src/ui/views/remotion-ai-panel.test.ts"

@@ -1,0 +1,27 @@
+{
+  "name": "@openclaw/remotion-ai",
+  "version": "2026.5.9",
+  "private": true,
+  "description": "OpenClaw Remotion AI Create plugin — orchestrates Codex (M1) to author Remotion projects in an isolated workspace with bundle + selectComposition + render-still validation",
+  "type": "module",
+  "dependencies": {
+    "@openai/codex": "^0.129.0",
+    "@remotion/bundler": "4.0.290",
+    "@remotion/renderer": "4.0.290",
+    "remotion": "4.0.290",
+    "typebox": "1.1.28"
+  },
+  "devDependencies": {
+    "@openclaw/codex": "workspace:*",
+    "@openclaw/plugin-sdk": "workspace:*"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts",
+      "./src/validator/ai-render-worker.ts"
+    ],
+    "bundle": {
+      "stageRuntimeDependencies": true
+    }
+  }
+}

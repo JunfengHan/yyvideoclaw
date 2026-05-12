@@ -8,18 +8,32 @@ and surfaced in the Remotion Studio tab of the Control UI.
 ```
 remotion-templates/
 ├── README.md               ← you are here
-└── starter-pack/
-    ├── package.json        (optional — name + deps hint; actual resolution
-    │                         uses the repo-root node_modules)
+├── starter-pack/
+│   ├── package.json        (optional — name + deps hint; actual resolution
+│   │                         uses the repo-root node_modules)
+│   ├── src/
+│   │   ├── index.ts        Remotion entry (registerRoot)
+│   │   ├── Root.tsx        <Composition> registry
+│   │   ├── TitleCard.tsx
+│   │   ├── Countdown.tsx
+│   │   ├── LowerThird.tsx
+│   │   └── SocialCard.tsx
+│   └── studio.json         UI metadata (label/description/inputPropsSchema)
+└── ai-starter/             Template copied into every remotion-ai workspace
+    ├── package.json        (same hoist-based deps as starter-pack)
     ├── src/
-    │   ├── index.ts        Remotion entry (registerRoot)
-    │   ├── Root.tsx        <Composition> registry
-    │   ├── TitleCard.tsx
-    │   ├── Countdown.tsx
-    │   ├── LowerThird.tsx
-    │   └── SocialCard.tsx
-    └── studio.json         UI metadata (label/description/inputPropsSchema)
+    │   ├── index.ts        registerRoot(Root)
+    │   └── Root.tsx        Placeholder <Composition> (agent replaces it)
+    ├── studio.json         UI metadata for the placeholder composition
+    ├── AGENTS.md           Inline writing guide for the coding agent
+    └── .skills/            Vendored Remotion Agent Skills (pinned commit)
+        ├── VERSION         Source/ref/sha recorded by the vendor script
+        └── README.md       Maintainer notes — do not edit by hand
 ```
+
+`starter-pack/` is the curated set of demo compositions shipped with
+OpenClaw. `ai-starter/` is consumed only by the `remotion-ai` plugin —
+it's copied fresh into each AI Create job's workspace.
 
 Each directory under `remotion-templates/` that's listed in
 `openclaw.json → plugins.entries.remotion.config.templateRoots` becomes a

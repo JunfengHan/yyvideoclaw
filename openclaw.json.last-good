@@ -4,7 +4,9 @@
       "workspace": "/Users/johnhan/.openclaw/workspace",
       "model": {
         "primary": "qwen/qwen3.5-plus",
-        "fallbacks": ["openai/gpt-5.4-mini"]
+        "fallbacks": [
+          "openai/gpt-5.4-mini"
+        ]
       },
       "contextInjection": "always",
       "bootstrapMaxChars": 20000,
@@ -77,26 +79,36 @@
       }
     }
   },
-    "plugins": {
-        "entries": {
-            "qwen": {
-                "enabled": true
-            },
-            "openai": {
-                "enabled": true
-            },
-            "remotion": {
-                "enabled": true,
-                "config": {
-                    "templateRoots": [
-                        "/Users/johnhan/Desktop/myself/yyvideoclaw/remotion-templates/starter-pack",
-                        "/Users/johnhan/Desktop/myself/yyvideoclaw/extensions/remotion/test/e2e/fixtures/minimal-project"
-                    ],
-                    "jobTimeoutMs": 300000,
-                    "maxOutputBytes": 52428800,
-                    "allowNetwork": false
-                }
-            }
+  "plugins": {
+    "entries": {
+      "qwen": {
+        "enabled": true
+      },
+      "openai": {
+        "enabled": true
+      },
+      "remotion": {
+        "enabled": true,
+        "config": {
+          "templateRoots": [
+            "/Users/johnhan/Desktop/myself/yyvideoclaw/remotion-templates/starter-pack",
+            "/Users/johnhan/Desktop/myself/yyvideoclaw/extensions/remotion/test/e2e/fixtures/minimal-project"
+          ],
+          "jobTimeoutMs": 300000,
+          "maxOutputBytes": 52428800,
+          "allowNetwork": false
         }
+      },
+      "remotion-ai": {
+        "enabled": true,
+        "config": {
+          "engine": "codex",
+          "retryMax": 3,
+          "jobTimeoutMs": 600000,
+          "skillsBundled": true,
+          "allowNetwork": false
+        }
+      }
     }
+  }
 }

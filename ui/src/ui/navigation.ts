@@ -9,7 +9,7 @@ type TabGroup = {
 };
 
 export const TAB_GROUPS: readonly TabGroup[] = [
-  { label: "yyVideo", tabs: ["remoteTerminal", "videoStudio", "remotionStudio"] },
+  { label: "yyVideo", tabs: ["remoteTerminal", "videoStudio", "remotionStudio", "library"] },
   { label: "chat", tabs: ["chat"] },
   {
     label: "control",
@@ -53,7 +53,8 @@ export type Tab =
   | "logs"
   | "dreams"
   | "videoStudio"
-  | "remotionStudio";
+  | "remotionStudio"
+  | "library";
 
 const TAB_PATHS: Record<Tab, string> = {
   remoteTerminal: "/yy-video/remote-servers/terminal",
@@ -78,6 +79,7 @@ const TAB_PATHS: Record<Tab, string> = {
   dreams: "/dreaming",
   videoStudio: "/video-studio",
   remotionStudio: "/remotion-studio",
+  library: "/library",
 };
 
 const PATH_ALIASES: Record<string, Tab> = {
@@ -214,6 +216,8 @@ export function iconForTab(tab: Tab): IconName {
       return "film";
     case "remotionStudio":
       return "film";
+    case "library":
+      return "folder";
     default:
       return "folder";
   }

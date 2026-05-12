@@ -9,6 +9,7 @@ import {
   stopDebugPolling,
   startRemotionStudioPolling,
   startVideoStudioPolling,
+  stopLibraryPolling,
   stopRemotionStudioPolling,
   stopVideoStudioPolling,
 } from "./app-polling.ts";
@@ -117,6 +118,7 @@ export function handleDisconnected(host: LifecycleHost) {
   stopDebugPolling(host as unknown as Parameters<typeof stopDebugPolling>[0]);
   stopVideoStudioPolling(host as unknown as Parameters<typeof stopVideoStudioPolling>[0]);
   stopRemotionStudioPolling(host as unknown as Parameters<typeof stopRemotionStudioPolling>[0]);
+  stopLibraryPolling(host as unknown as Parameters<typeof stopLibraryPolling>[0]);
   host.realtimeTalkSession?.stop();
   host.realtimeTalkSession = null;
   host.realtimeTalkActive = false;

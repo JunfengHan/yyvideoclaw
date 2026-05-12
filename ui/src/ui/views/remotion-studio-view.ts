@@ -38,6 +38,7 @@ import {
   type RemotionTemplateWire,
 } from "../controllers/remotion-studio.ts";
 import { renderIcon } from "../icons.ts";
+import { renderRemotionAiPanel, type RemotionAiPanelViewState } from "./remotion-ai-panel.ts";
 
 // ---------------------------------------------------------------------------
 // Public inputs.
@@ -69,6 +70,14 @@ export type RemotionStudioViewState = {
   /** basePath used to build the (unauthenticated) "open externally" link. */
   readonly basePath: string;
   readonly callbacks: RemotionStudioViewCallbacks;
+  /**
+   * Optional Remotion AI Create panel state. When provided, the panel is
+   * rendered above the templates+form layout. When `undefined` (the
+   * default), the legacy view renders unchanged. This keeps the AI panel
+   * a fully optional, opt-in surface that callers wire in once they're
+   * ready to expose Remotion AI to users.
+   */
+  readonly aiPanel?: RemotionAiPanelViewState;
 };
 
 // ---------------------------------------------------------------------------
@@ -78,13 +87,15 @@ export type RemotionStudioViewState = {
 export function renderRemotionStudioView(
   s: RemotionStudioViewState,
 ): TemplateResult | typeof nothing {
+  const aiPanel = renderRemotionAiPanel(s.aiPanel);
   if (!s.status && s.statusError) {
-    return shell(infoBox(s.statusError));
+    return shell(html`${aiPanel} ${infoBox(s.statusError)}`);
   }
   if (!s.status) {
-    return shell(infoBox(t("remotionStudio.state.loadingTemplates")));
+    return shell(html`${aiPanel} ${infoBox(t("remotionStudio.state.loadingTemplates"))}`);
   }
   return shell(html`
+    ${aiPanel}
     <div
       class="remotion-studio-view__layout"
       style="display:grid;grid-template-columns:minmax(220px,260px) minmax(0,1fr);gap:1.25rem;align-items:start;"

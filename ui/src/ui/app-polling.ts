@@ -1,5 +1,6 @@
 import type { DebugState } from "./controllers/debug.ts";
 import { loadDebug } from "./controllers/debug.ts";
+import { loadLibrary, type LibraryControllerState } from "./controllers/library.ts";
 import type { LogsState } from "./controllers/logs.ts";
 import { loadLogs } from "./controllers/logs.ts";
 import type { NodesState } from "./controllers/nodes.ts";
@@ -24,6 +25,7 @@ type PollingHost = {
   debugPollInterval: number | null;
   videoStudioPollTimer?: number | null;
   remotionStudioPollTimer?: number | null;
+  libraryPollTimer?: number | null;
   tab: string;
 };
 
@@ -188,5 +190,34 @@ export function stopRemotionStudioPolling(
   if (host.remotionPreviewBlobUrl) {
     URL.revokeObjectURL(host.remotionPreviewBlobUrl);
     host.remotionPreviewBlobUrl = null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Library (AI-generated local resources) polling.
+// ---------------------------------------------------------------------------
+
+export function startLibraryPolling(host: PollingHost & LibraryControllerState & RemotionHttpDeps) {
+  if (host.libraryPollTimer != null) {
+    return;
+  }
+  const tick = async () => {
+    if (host.tab !== "library") {
+      return;
+    }
+    try {
+      await loadLibrary(host, host);
+    } catch {
+      // Errors are already projected into host.librarySourceStatus.
+    }
+  };
+  void tick();
+  host.libraryPollTimer = window.setInterval(() => void tick(), 10_000);
+}
+
+export function stopLibraryPolling(host: PollingHost) {
+  if (host.libraryPollTimer != null) {
+    clearInterval(host.libraryPollTimer);
+    host.libraryPollTimer = null;
   }
 }

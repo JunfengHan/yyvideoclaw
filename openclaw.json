@@ -96,6 +96,16 @@
           "maxOutputBytes": 52428800,
           "allowNetwork": false
         }
+      },
+      "remotion-ai": {
+        "enabled": true,
+        "config": {
+          "engine": "codex",
+          "retryMax": 3,
+          "jobTimeoutMs": 600000,
+          "skillsBundled": true,
+          "allowNetwork": false
+        }
       }
     }
   }

@@ -572,6 +572,72 @@ export class OpenClawApp extends LitElement {
   /** Active polling intervals, by jobId. Cleared on disconnect / job select. */
   remotionPollHandles: Map<string, ReturnType<typeof setInterval>> = new Map();
 
+  // ---- Remotion AI Create ---------------------------------------------------
+  @state() remotionAiDraft: import("./controllers/remotion-ai.ts").RemotionAiDraft = {
+    prompt: "",
+    engine: "codex",
+    retryMax: 3,
+  };
+  @state() remotionAiCurrentJob:
+    | import("./controllers/remotion-ai.ts").RemotionAiJobSnapshotWire
+    | null = null;
+  @state()
+  remotionAiHistory: readonly import("./controllers/remotion-ai.ts").RemotionAiJobSnapshotWire[] =
+    [];
+  @state() remotionAiSubmitting = false;
+  @state() remotionAiSubmitError: string | null = null;
+  @state() remotionAiCancelling = false;
+  @state() remotionAiLastAgentMessage: string | null = null;
+  @state() remotionAiCollapsed = false;
+  @state() remotionAiAdvancedOpen = false;
+  /** Active Remotion AI polling intervals, by jobId. */
+  remotionAiPollHandles: Map<string, ReturnType<typeof setInterval>> = new Map();
+  // M1 auth state. Default to `null` authStatus + `"closed"` modal; the
+  // view controller calls fetchAuthStatus() once on mount and opens the
+  // modal automatically when the mode comes back as "unset".
+  @state() remotionAiAuthStatus:
+    | import("./controllers/remotion-ai-auth.ts").RemotionAiAuthStatusWire
+    | null = null;
+  @state()
+  remotionAiAuthModalView: import("./controllers/remotion-ai-auth.ts").RemotionAiAuthModalView =
+    "closed";
+  @state() remotionAiAuthPending = false;
+  @state() remotionAiAuthError: string | null = null;
+  // Cached OpenRouter model list. `undefined` until the first time the
+  // user enters the byok-openrouter modal; null while a fetch is
+  // in-flight; an array (possibly empty) once the list arrives.
+  @state() remotionAiOpenRouterModels:
+    | ReadonlyArray<import("./controllers/remotion-ai-auth.ts").OpenRouterModelWire>
+    | null
+    | undefined = undefined;
+
+  // ---- Library (AI-generated local resources) -------------------------------
+  @state()
+  libraryItems: readonly import("./controllers/library.ts").LibraryItem[] = [];
+  @state()
+  librarySourceStatus: Readonly<
+    Record<
+      import("./controllers/library.ts").LibrarySourceId,
+      import("./controllers/library.ts").LibrarySourceStatus
+    >
+  > = {
+    "remotion-ai": {
+      loading: false,
+      error: null,
+      lastLoadedAt: null,
+      libraryRoot: null,
+      entryCount: 0,
+    },
+  };
+  @state()
+  libraryFilter: import("./controllers/library.ts").LibraryFilter = {
+    search: "",
+    sourceId: "all",
+    includeLive: true,
+  };
+  @state() libraryDeletingId: string | null = null;
+  libraryPollHandle: ReturnType<typeof setInterval> | null = null;
+
   client: GatewayBrowserClient | null = null;
   private chatScrollFrame: number | null = null;
   private chatScrollTimeout: number | null = null;

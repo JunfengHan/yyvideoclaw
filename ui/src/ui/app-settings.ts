@@ -2,7 +2,9 @@ import { roleScopesAllow } from "../../../src/shared/operator-scope-compat.js";
 import { t } from "../i18n/index.ts";
 import { refreshChat } from "./app-chat.ts";
 import {
+  startLibraryPolling,
   startLogsPolling,
+  stopLibraryPolling,
   stopLogsPolling,
   startDebugPolling,
   stopDebugPolling,
@@ -562,6 +564,9 @@ function applyTabSelection(
   );
   (next === "remotionStudio" ? startRemotionStudioPolling : stopRemotionStudioPolling)(
     host as unknown as Parameters<typeof startRemotionStudioPolling>[0],
+  );
+  (next === "library" ? startLibraryPolling : stopLibraryPolling)(
+    host as unknown as Parameters<typeof startLibraryPolling>[0],
   );
 
   if (options.refreshPolicy === "always" || host.connected) {
