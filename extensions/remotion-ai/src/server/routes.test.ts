@@ -1,4 +1,7 @@
+import { promises as fs } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import os from "node:os";
+import path from "node:path";
 import { PassThrough, Writable } from "node:stream";
 import { describe, expect, it } from "vitest";
 import type { ResolvedRemotionAiConfig } from "../config.js";
@@ -14,6 +17,7 @@ import {
   makeJobLookupHandler,
   type RouteContext,
 } from "./routes.js";
+import { handleVoiceover } from "./voiceover.js";
 
 function makeRequest(method: string, url: string, body?: unknown): IncomingMessage {
   const stream = new PassThrough() as IncomingMessage & PassThrough;
@@ -90,9 +94,10 @@ function makeResponse(): CapturedResponse {
   return wrapper;
 }
 
-function makeConfig(): ResolvedRemotionAiConfig {
+function makeConfig(overrides: Partial<ResolvedRemotionAiConfig> = {}): ResolvedRemotionAiConfig {
   return {
     engine: "codex",
+    defaultOutputRoot: "/tmp/remotion-ai-test-library",
     outputRootAllowlist: undefined,
     retryMax: 3,
     jobTimeoutMs: 60_000,
@@ -101,6 +106,7 @@ function makeConfig(): ResolvedRemotionAiConfig {
     allowNetwork: false,
     chromiumExecutablePath: undefined,
     maxOutputBytes: 10 * 1024 * 1024,
+    ...overrides,
   };
 }
 
@@ -135,9 +141,21 @@ function makeOrchestrator(
   return { orchestrator, submitted, cancelled };
 }
 
-function makeContext(jobs: JobsStore, orchestrator: Orchestrator): RouteContext {
+function makeContext(
+  jobs: JobsStore,
+  orchestrator: Orchestrator,
+  config: ResolvedRemotionAiConfig = makeConfig(),
+): RouteContext {
   return {
-    config: makeConfig(),
+    config,
+    coreConfig: {},
+    runtime: {
+      tts: {
+        textToSpeech: async () => ({ success: false, error: "TTS stub not configured" }),
+        textToSpeechTelephony: async () => ({ success: false, error: "TTS stub not configured" }),
+        listVoices: async () => [],
+      },
+    },
     jobs,
     orchestrator,
     logger: {
@@ -294,6 +312,86 @@ describe("handleHistory", () => {
     const parsed = JSON.parse(cap.body) as { jobs: JobSnapshot[] };
     expect(parsed.jobs).toHaveLength(3);
     expect(parsed.jobs[0]?.jobId).toBe("h-3");
+  });
+});
+
+describe("handleVoiceover", () => {
+  it("generates per-cue audio assets and a Remotion import module", async () => {
+    const libraryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "remotion-ai-voiceover-"));
+    const workspaceDir = path.join(libraryRoot, "job-voiceover");
+    const srcDir = path.join(workspaceDir, "src");
+    await fs.mkdir(srcDir, { recursive: true });
+    const sourceAudio = path.join(libraryRoot, "source.mp3");
+    await fs.writeFile(sourceAudio, "mp3");
+
+    const jobs = new JobsStore();
+    jobs.enqueue({ jobId: "job-voiceover", engine: "codex", workspaceDir });
+    const { orchestrator } = makeOrchestrator(jobs);
+    const ctx = makeContext(jobs, orchestrator, makeConfig({ defaultOutputRoot: libraryRoot }));
+    let ttsCalls = 0;
+    Object.assign(ctx.runtime.tts, {
+      textToSpeech: async ({ text }: { text: string }) => {
+        ttsCalls += 1;
+        return {
+          success: true,
+          audioPath: sourceAudio,
+          provider: "mock",
+          outputFormat: "mp3",
+          voiceCompatible: true,
+          latencyMs: text.length,
+        };
+      },
+    });
+
+    const req = makeRequest("POST", "/remotion-ai/voiceover", {
+      jobId: "job-voiceover",
+      voiceoverId: "narration",
+      fps: 30,
+      subtitles: [
+        { id: "intro", text: "Hello", startFrame: 0, endFrame: 30 },
+        { id: "outro", text: "World", startFrame: 30, endFrame: 60 },
+      ],
+    });
+    const cap = makeResponse();
+    await handleVoiceover(req, cap.res, ctx);
+    await cap.done;
+
+    expect(cap.status).toBe(201);
+    expect(ttsCalls).toBe(2);
+    const parsed = JSON.parse(cap.body) as {
+      manifestPath: string;
+      generatedModulePath: string;
+      cues: Array<{ staticFile: string; durationInFrames: number }>;
+    };
+    expect(parsed.cues.map((cue) => cue.staticFile)).toEqual([
+      "voiceover/narration/001-intro.mp3",
+      "voiceover/narration/002-outro.mp3",
+    ]);
+    expect(parsed.cues.map((cue) => cue.durationInFrames)).toEqual([30, 30]);
+    await expect(fs.stat(parsed.manifestPath)).resolves.toMatchObject({
+      isFile: expect.any(Function),
+    });
+    await expect(fs.readFile(parsed.generatedModulePath, "utf8")).resolves.toContain(
+      "voiceoverCues",
+    );
+  });
+
+  it("rejects workspaces outside configured output roots", async () => {
+    const libraryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "remotion-ai-library-"));
+    const outsideRoot = await fs.mkdtemp(path.join(os.tmpdir(), "remotion-ai-outside-"));
+    const jobs = new JobsStore();
+    const { orchestrator } = makeOrchestrator(jobs);
+    const ctx = makeContext(jobs, orchestrator, makeConfig({ defaultOutputRoot: libraryRoot }));
+    const req = makeRequest("POST", "/remotion-ai/voiceover", {
+      workspaceDir: outsideRoot,
+      subtitles: [{ text: "Nope", startFrame: 0, endFrame: 30 }],
+    });
+    const cap = makeResponse();
+    await handleVoiceover(req, cap.res, ctx);
+    await cap.done;
+
+    expect(cap.status).toBe(403);
+    expect(cap.body).toContain("workspace_not_allowed");
   });
 });
 

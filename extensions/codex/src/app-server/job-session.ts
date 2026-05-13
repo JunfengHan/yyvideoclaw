@@ -439,13 +439,19 @@ class JobTurnRun {
   }
 
   private handleErrorNotification(params: JsonObject): void {
-    const message = readStringField(params, "message") ?? "codex app-server error";
+    const message = readErrorNotificationMessage(params);
+    if (readBooleanField(params, "willRetry") === true) {
+      embeddedAgentLog.debug("codex job turn saw retryable app-server error", {
+        ...(message ? { error: message } : {}),
+      });
+      return;
+    }
     this.emit({
       type: "turn_complete",
       threadId: this.threadId,
       turnId: this.turnId ?? "",
       status: "failed",
-      errorMessage: message,
+      errorMessage: message ?? "codex app-server error",
     });
     this.settled = true;
     this.resolver?.({ status: "failed" });
@@ -599,6 +605,19 @@ function readStringField(value: JsonObject | undefined, key: string): string | u
   }
   const entry = value[key];
   return typeof entry === "string" ? entry : undefined;
+}
+
+function readBooleanField(value: JsonObject | undefined, key: string): boolean | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const entry = value[key];
+  return typeof entry === "boolean" ? entry : undefined;
+}
+
+function readErrorNotificationMessage(params: JsonObject): string | undefined {
+  const nestedError = isJsonObject(params.error) ? params.error : undefined;
+  return readStringField(params, "message") ?? readStringField(nestedError, "message");
 }
 
 interface SignalMerge {

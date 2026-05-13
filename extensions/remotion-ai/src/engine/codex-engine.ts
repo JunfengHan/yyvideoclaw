@@ -69,6 +69,10 @@ const DEFAULT_DEVELOPER_INSTRUCTIONS = [
   "least one registered <Composition>.",
   "Do NOT install new npm packages. Do NOT touch `.skills/`. Use",
   "extension-less relative imports inside the Remotion project.",
+  "Captions/subtitles are visual only; a rendered video has sound only when",
+  "the composition includes explicit Remotion audio such as <Audio>. If",
+  "src/generated/voiceover.ts exists, import voiceoverCues and use each cue's",
+  "same start/end frames for <Audio>, subtitle text, and visual scene timing.",
 ].join(" ");
 
 // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents -- ESLint's TS resolver does not honour the repo-root tsconfig `@openclaw/*` paths, so `SpawnCodexJob` resolves to `any` here even though tsgo (the source-of-truth typecheck) sees the real `typeof spawnCodexAppServerJob` signature. The `| null` half is the meaningful one for the cache.

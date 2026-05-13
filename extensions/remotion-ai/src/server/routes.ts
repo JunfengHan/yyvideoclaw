@@ -12,6 +12,7 @@
 //   GET    /remotion-ai/history                       — recent jobs (in-memory)
 //   GET    /remotion-ai/jobs/:jobId/events            — SSE stream (in events.ts)
 //   GET    /remotion-ai/library                       — disk-backed library listing
+//   POST   /remotion-ai/voiceover                     — generate TTS audio assets from cues
 //   DELETE /remotion-ai/library/:jobId                — delete one library entry
 //   GET    /remotion-ai/library/:jobId/output.mp4     — stream the rendered video
 //                                                       (supports HTTP Range so
@@ -19,7 +20,11 @@
 
 import { createReadStream } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { PluginLogger } from "openclaw/plugin-sdk/plugin-entry";
+import type {
+  OpenClawConfig,
+  OpenClawPluginApi,
+  PluginLogger,
+} from "openclaw/plugin-sdk/plugin-entry";
 import type { ResolvedRemotionAiConfig } from "../config.js";
 import type { JobsStore } from "../jobs-store.js";
 import {
@@ -33,6 +38,8 @@ import type { JobSnapshot, Phase } from "../types.js";
 
 export interface RouteContext {
   readonly config: ResolvedRemotionAiConfig;
+  readonly coreConfig: OpenClawConfig;
+  readonly runtime: Pick<OpenClawPluginApi["runtime"], "tts">;
   readonly jobs: JobsStore;
   readonly orchestrator: Orchestrator;
   readonly logger: PluginLogger;

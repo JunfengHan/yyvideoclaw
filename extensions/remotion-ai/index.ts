@@ -50,6 +50,7 @@ import {
   methodNotAllowed,
   type RouteContext,
 } from "./src/server/routes.js";
+import { handleVoiceover } from "./src/server/voiceover.js";
 
 export default definePluginEntry({
   id: "remotion-ai",
@@ -98,6 +99,8 @@ export default definePluginEntry({
 
     const ctx: RouteContext = {
       config: resolvedConfig,
+      coreConfig: api.config,
+      runtime: { tts: api.runtime.tts },
       jobs,
       orchestrator,
       logger: api.logger,
@@ -126,6 +129,12 @@ export default definePluginEntry({
       match: "exact",
       auth: "gateway",
       handler: wrap(handleLibrary),
+    });
+    api.registerHttpRoute({
+      path: "/remotion-ai/voiceover",
+      match: "exact",
+      auth: "gateway",
+      handler: wrap(handleVoiceover),
     });
     // ---- Auth routes (hosted vs byok) ----
     // Each handler is a closure produced by `makeAuth*Handler` so

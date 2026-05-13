@@ -262,6 +262,101 @@ describe("spawnCodexAppServerJob", () => {
     responder.stop();
   });
 
+  it("ignores retryable app-server error notifications while the turn continues", async () => {
+    const { events, onEvent } = captureEvents();
+
+    const script: ScriptedResponse[] = [
+      {
+        match: (method) => method === "initialize",
+        respond: (h, id) => h.send({ id, result: { userAgent: "Codex/0.999.0 test" } }),
+      },
+      {
+        match: (method) => method === "thread/start",
+        respond: (h, id) =>
+          h.send({
+            id,
+            result: {
+              thread: buildFakeThread("thread-retryable", "/tmp/ws"),
+              model: "gpt-5.4-codex",
+              modelProvider: "openai",
+              serviceTier: null,
+              cwd: "/tmp/ws",
+              instructionSources: [],
+              approvalPolicy: "never",
+              approvalsReviewer: "user",
+              sandbox: { type: "dangerFullAccess" },
+              permissionProfile: null,
+              reasoningEffort: null,
+            },
+          }),
+      },
+      {
+        match: (method) => method === "turn/start",
+        respond: (h, id) => {
+          h.send({
+            id,
+            result: {
+              turn: {
+                id: "turn-retryable",
+                items: [],
+                status: "inProgress",
+                error: null,
+                startedAt: null,
+                completedAt: null,
+                durationMs: null,
+              },
+            },
+          });
+          setImmediate(() => {
+            h.send({
+              method: "error",
+              params: {
+                threadId: "thread-retryable",
+                turnId: "turn-retryable",
+                willRetry: true,
+                error: { message: "stream disconnected" },
+              },
+            });
+            h.send({
+              method: "turn/completed",
+              params: {
+                threadId: "thread-retryable",
+                turnId: "turn-retryable",
+                turn: {
+                  id: "turn-retryable",
+                  status: "completed",
+                  error: null,
+                  startedAt: 0,
+                  completedAt: 0,
+                  durationMs: 42,
+                  items: [],
+                },
+              },
+            });
+          });
+        },
+      },
+    ];
+
+    const handlePromise = spawnCodexAppServerJob({
+      workspaceDir: "/tmp/ws",
+      initialPrompt: "Build a title card video",
+      onEvent,
+    });
+    const responder = startHarnessResponder(script);
+    const handle = await handlePromise;
+
+    const completeEvents = events.filter(
+      (event): event is Extract<CodexAppServerJobEvent, { type: "turn_complete" }> =>
+        event.type === "turn_complete",
+    );
+    expect(completeEvents).toHaveLength(1);
+    expect(completeEvents[0]).toMatchObject({ status: "completed" });
+
+    await handle.close();
+    responder.stop();
+  });
+
   it("supports sendUserTurn (retry-with-digest) on the same thread", async () => {
     const { events, onEvent } = captureEvents();
     const script: ScriptedResponse[] = [

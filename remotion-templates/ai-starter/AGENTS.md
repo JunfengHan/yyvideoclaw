@@ -29,6 +29,12 @@ render-still` on the first composition it finds. An empty registry
   hot-link remote URLs (network is blocked during validation).
 - Typography: use system font stacks. Web fonts require
   `<Font.preload>` and will not load offline during validation.
+- Audio is explicit in Remotion: captions/subtitles are visual text only and
+  do not create sound. If the workspace contains `src/generated/voiceover.ts`,
+  import `voiceoverCues` from it and render each cue with the same frame range
+  for `<Audio src={staticFile(cue.staticFile)} />`, subtitles, and scene
+  changes so narration, picture, and text stay synchronized. If no local audio
+  asset exists, do not claim the rendered video has narration or BGM.
 
 ## Validation Loop
 
